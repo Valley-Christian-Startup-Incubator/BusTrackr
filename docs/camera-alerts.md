@@ -25,9 +25,16 @@ Production runs on `valley-big-mac` at `/Users/aimac/apps/bustrackr`, behind a d
 | Health (GET) | `https://bustrackr.valleychristianai.com/api/health` |
 | App status feed (GET) | `https://bustrackr.valleychristianai.com/api/shuttle` |
 
+The original account is now configured on the Mac. Both receiving addresses are enabled in the backend filter:
+
+- `fehren@inbound.valleychristianai.com`
+- `fehren2@inbound.valleychristianai.com`
+
+Webhook ID: `b7ce83fc-6a0d-4200-addb-2cf9951cbfed`. Its signing secret and the API key are stored only in the private server environment file. No additional environment setup is needed for this deployment; the steps below document how to reproduce or change it. The root domain `valleychristianai.com` is not enabled for receiving.
+
 ### 1. Choose the receiving address
 
-In the **new Resend account**, open **Emails → Receiving**, then the three-dot menu → **Receiving address** to find the account's `<id>.resend.app` domain. Choose `camera@<id>.resend.app`. This route does not require your own DNS changes. Alternatively, enable receiving on a dedicated custom subdomain and add the MX records Resend supplies; wait for verification. Do not replace an existing normal-mail domain's MX records. See [Resend receiving setup](https://resend.com/docs/dashboard/receiving/introduction).
+In the **Resend account used by the backend**, open **Emails → Receiving**, then the three-dot menu → **Receiving address** to find the account's `<id>.resend.app` domain. Choose `camera@<id>.resend.app`. This route does not require your own DNS changes. Alternatively, enable receiving on a dedicated custom subdomain and add the MX records Resend supplies; wait for verification. Do not replace an existing normal-mail domain's MX records. See [Resend receiving setup](https://resend.com/docs/dashboard/receiving/introduction).
 
 ### 2. Create the webhook and API key
 
@@ -42,7 +49,7 @@ ssh valley-big-mac
 nano /Users/aimac/apps/bustrackr/.env.server
 ```
 
-Fill in these four values from the new Resend account:
+Fill in these four values from the same Resend account:
 
 ```dotenv
 RESEND_API_KEY=
@@ -63,7 +70,7 @@ If you already created a Resend webhook for Vercel, change its endpoint to the n
 
 ### 4. Point the camera at Resend and verify
 
-Set the camera's alert recipient to exactly `RESEND_INBOUND_ADDRESS`. Keep its existing sending/SMTP settings; Resend is receiving these messages. Direct delivery is preferred. A forwarded message must preserve the required sender and pass the backend's authentication checks.
+Set each camera's alert recipient to one of the comma-separated addresses in `RESEND_INBOUND_ADDRESS`. Keep its existing sending/SMTP settings; Resend is receiving these messages. Direct delivery is preferred. A forwarded message must preserve the required sender and pass the backend's authentication checks.
 
 Open the health URL. Expected result: `status: "connected"`, `storage: "local"`, and `missing: []`. Before configuration, health reports `needs_configuration` and the webhook returns HTTP 503. A configured but unsigned POST is rejected with HTTP 400. Opening the POST webhook in a browser is not a delivery test.
 
@@ -155,7 +162,7 @@ Set `ALERT_STATE_FILE` explicitly to export another state file. Legacy latest-on
 
 ## Verify and host
 
-`npm run test:alerts` covers timestamp parsing, HTML email, filtering, persistent history, duplicates, schedule estimation, ambiguity, DST, delayed delivery, signed webhook delivery, recipient/authentication filtering, concurrent duplicates, retryable failures and the real sample HTTP server. `npm run build` checks the frontend and scene assets. Live delivery requires the new Resend account, a reachable HTTPS webhook and a genuine camera message.
+`npm run test:alerts` covers timestamp parsing, HTML email, filtering, persistent history, duplicates, schedule estimation, ambiguity, DST, delayed delivery, signed webhook delivery, recipient/authentication filtering, concurrent duplicates, retryable failures and the real sample HTTP server. `npm run build` checks the frontend and scene assets. Live delivery requires the configured Resend account, a reachable HTTPS webhook and a genuine camera message.
 
 If self-hosting the standalone worker instead of using the deployed Mac backend, use an always-on host with persistent storage and backups. Its default bind is loopback; place a TLS reverse proxy in front. Configure an exact `ALERT_ALLOWED_ORIGIN` for a separately hosted frontend. CORS is not authentication: the status API is public, so add deployment access controls if operational status should be private. API responses contain no-store headers. Feed failure hides estimated positions while retaining the timestamped last observation. The JSON store requires a single writer; move to a transactional database when scale or multiple workers require it.
 

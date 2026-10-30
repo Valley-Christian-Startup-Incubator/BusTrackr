@@ -27,7 +27,7 @@ let lastCheckedAt = null;
 const port = Number(process.env.ALERT_PORT || 8787);
 const interval = Number(process.env.RESEND_HEALTH_SECONDS || 30);
 if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isFinite(interval) || interval < 5 || interval > 60 || !Number.isFinite(config.cooldownSeconds) || config.cooldownSeconds<0 || config.cooldownSeconds>300) throw new Error('Invalid port, health interval, or cooldown setting');
-if (!sample && !missing.length && (!/^https:\/\//.test(config.webhookUrl) || !/^[^\s@]+@[^\s@]+$/.test(config.recipient))) throw new Error('Set an HTTPS webhook URL and receiving email address');
+if (!sample && !missing.length && (!/^https:\/\//.test(config.webhookUrl) || !config.recipient.split(',').every(value => /^[^\s@]+@[^\s@]+$/.test(value.trim())))) throw new Error('Set an HTTPS webhook URL and receiving email address');
 const api = sample ? null : resendApi(process.env.RESEND_API_KEY);
 const receiver = sample || missing.length ? null : createReceiver({state, config, api, persist: next => saveState(statePath, next)});
 if (sample) {

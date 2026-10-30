@@ -11,7 +11,7 @@ const emailSchema = z.object({
   authentication: z.object({dkim: z.string(), dmarc: z.string()}).nullable().optional(),
 });
 const eventSchema = z.object({type: z.literal('email.received'), data: z.object({email_id: z.string().uuid(), to: z.array(address)})});
-const forRecipient = (recipients, recipient) => recipients.some(value => value.toLowerCase() === recipient.toLowerCase());
+const forRecipient = (recipients, recipient) => recipients.some(value => recipient.split(',').map(address => address.trim().toLowerCase()).includes(value.toLowerCase()));
 export async function boundedText(stream, limit) {
   const chunks = []; let size = 0;
   for await (const chunk of stream) {

@@ -94,3 +94,14 @@ test('signed HTTP delivery reaches camera history and rejects invalid authentica
     assert.equal(h.saved.events.length,1);
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+
+test('accepts either configured receiving address and ignores others', async()=>{
+  const both={...config,recipient:'fehren@inbound.valleychristianai.com, fehren2@inbound.valleychristianai.com'};
+  for (const to of ['fehren@inbound.valleychristianai.com','fehren2@inbound.valleychristianai.com']) {
+    assert(await receivedAlert({...mail,to:[to]},both));
+    const h=harness({config:both,api:async()=>({...mail,to:[to]})});
+    const event=signed({type:'email.received',data:{email_id:emailId,to:[to]}});
+    assert.equal((await h.receiver.handle(event.raw,event.headers)).body.stored,true);
+  }
+  assert.equal(await receivedAlert({...mail,to:['other@inbound.valleychristianai.com']},both),null);
+});
