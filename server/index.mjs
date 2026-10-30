@@ -1,34 +1,35 @@
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {setTimeout as delay} from 'node:timers/promises';
-import {ImapFlow} from 'imapflow';
+import {boundedText, checkReceiver, createReceiver, resendApi} from './resend.mjs';
 import {loadState, saveState, parseAlert, recordAlert} from './alerts.mjs';
-import {scanMailbox, mailboxAuth} from './mailbox.mjs';
 import {estimate, validateSchedule} from './estimator.mjs';
 
 const sample = process.argv.includes('--sample');
 const once = process.argv.includes('--once');
-const required = sample ? [] : ['IMAP_HOST','IMAP_USER','CAMERA_SENDER','CAMERA_MARKER'];
-for (const key of required) if (!process.env[key]?.trim()) throw new Error(`Set ${key} in .env.server`);
-if (!sample && !process.env.IMAP_PASSWORD && !process.env.IMAP_ACCESS_TOKEN && !process.env.GOOGLE_REFRESH_TOKEN) throw new Error('Set an IMAP app password or OAuth credentials');
+const required = sample ? [] : ['RESEND_API_KEY','RESEND_WEBHOOK_SECRET','RESEND_WEBHOOK_ID','RESEND_WEBHOOK_URL','RESEND_INBOUND_ADDRESS','CAMERA_SENDER','CAMERA_MARKER'];
+const missing = required.filter(key => !process.env[key]?.trim());
+if (once && missing.length) throw new Error(`Set ${missing.join(', ')} in .env.server`);
 const config = {
   sender:sample?'avigilonalerts@vcs.net':process.env.CAMERA_SENDER,
   subject:sample?'':process.env.CAMERA_SUBJECT || '',
   marker:sample?'BEI Bus has arrived.':process.env.CAMERA_MARKER,
   checkpoint:sample?'BEI campus corner':process.env.CAMERA_CHECKPOINT || 'BEI campus corner',
-  host:process.env.IMAP_HOST, user:process.env.IMAP_USER, mailbox:process.env.IMAP_MAILBOX || 'INBOX',
+  recipient:process.env.RESEND_INBOUND_ADDRESS, webhookSecret:process.env.RESEND_WEBHOOK_SECRET,
+  webhookId:process.env.RESEND_WEBHOOK_ID, webhookUrl:process.env.RESEND_WEBHOOK_URL,
   cooldownSeconds:Number(process.env.CAMERA_COOLDOWN_SECONDS || 30),
 };
 const statePath = process.env.ALERT_STATE_FILE || (sample ? '.data/sample-alerts.json' : '.data/alerts.json');
 const state = await loadState(statePath);
 let schedule = validateSchedule(JSON.parse(await readFile(process.env.ALERT_SCHEDULE_FILE || new URL('./schedule.json', import.meta.url), 'utf8')));
-let status = sample ? 'sample' : 'connecting';
+let status = sample ? 'sample' : missing.length ? 'disconnected' : 'connecting';
 let lastCheckedAt = null;
 const port = Number(process.env.ALERT_PORT || 8787);
-const interval = Number(process.env.IMAP_POLL_SECONDS || 30);
-const imapPort = Number(process.env.IMAP_PORT || 993);
-const backfillDays = Number(process.env.IMAP_BACKFILL_DAYS || 7);
-if (![port, imapPort].every(n=>Number.isInteger(n) && n > 0 && n <= 65535) || !Number.isFinite(interval) || interval < 5 || !Number.isInteger(backfillDays) || backfillDays<0 || backfillDays>365 || !Number.isFinite(config.cooldownSeconds) || config.cooldownSeconds<0 || config.cooldownSeconds>300) throw new Error('Invalid port, polling, backfill, or cooldown setting');
+const interval = Number(process.env.RESEND_HEALTH_SECONDS || 30);
+if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isFinite(interval) || interval < 5 || interval > 60 || !Number.isFinite(config.cooldownSeconds) || config.cooldownSeconds<0 || config.cooldownSeconds>300) throw new Error('Invalid port, health interval, or cooldown setting');
+if (!sample && !missing.length && (!/^https:\/\//.test(config.webhookUrl) || !/^[^\s@]+@[^\s@]+$/.test(config.recipient))) throw new Error('Set an HTTPS webhook URL and receiving email address');
+const api = sample ? null : resendApi(process.env.RESEND_API_KEY);
+const receiver = sample || missing.length ? null : createReceiver({state, config, api, persist: next => saveState(statePath, next)});
 if (sample) {
   if (!state.events.length) {
     const seen = new Date(Date.now()-120_000);
@@ -46,37 +47,40 @@ if (sample) {
 }
 function payload() {
   const checkAge=lastCheckedAt ? Date.now()-Date.parse(lastCheckedAt) : Infinity;
-  const feedStatus=sample?'sample':status==='connected' && checkAge>(interval+90)*1000?'disconnected':status;
+  const feedStatus=sample?'sample':status==='connected' && (checkAge>90_000 || !receiver.healthy)?'disconnected':status;
   const prediction=estimate(schedule,state.events);
-  if (!sample && feedStatus!=='connected') {prediction.marker=null;prediction.status='offline';prediction.reason='Mailbox feed is not current; position estimate hidden.';}
+  if (!sample && feedStatus!=='connected') {prediction.marker=null;prediction.status='offline';prediction.reason='Inbound email feed is not current; position estimate hidden.';}
   return {status:feedStatus,lastCheckedAt,latest:state.latest,eventCount:state.events.length,prediction};
 }
-const server = createServer((req,res)=>{
+const server = createServer(async (req,res)=>{
   const origin=process.env.ALERT_ALLOWED_ORIGIN;
   if (origin && req.headers.origin===origin) res.setHeader('Access-Control-Allow-Origin',origin);
   res.setHeader('Vary','Origin'); res.setHeader('Cache-Control','no-store'); res.setHeader('Content-Type','application/json');
+  if (req.method === 'GET' && req.url === '/api/health') {res.end(JSON.stringify({status:missing.length?'needs_configuration':payload().status,storage:'local',missing}));return;}
+  if (req.method === 'POST' && req.url === '/api/resend/inbound') {
+    if (!receiver) {res.writeHead(503);res.end(JSON.stringify({error:'Receiver needs configuration'}));return;}
+    try {
+      const raw = await boundedText(req, 64_000);
+      const result = await receiver.handle(raw, req.headers);
+      res.writeHead(result.status); res.end(JSON.stringify(result.body));
+    } catch {res.writeHead(413); res.end(JSON.stringify({error:'Invalid or oversized request'}));}
+    return;
+  }
   if (req.method!=='GET' || !['/api/detections/latest','/api/shuttle'].includes(req.url)) {res.writeHead(404);res.end(JSON.stringify({error:'Not found'}));return;}
   res.end(JSON.stringify(payload()));
 });
-if (!once) server.listen(port,process.env.ALERT_HOST || '127.0.0.1',()=>console.log(`Detection API on port ${port} (${sample?'sample':'IMAP'})`));
-let activeClient;
+if (!once) server.listen(port,process.env.ALERT_HOST || '127.0.0.1',()=>console.log(`Detection API on port ${port} (${sample?'sample':'Resend inbound'})`));
 let stopping=false;
 const abort=new AbortController();
-for (const signal of ['SIGINT','SIGTERM']) process.on(signal,()=>{stopping=true;abort.abort();activeClient?.close();server.close();});
-if (!sample) {
+server.requestTimeout = 20_000;
+for (const signal of ['SIGINT','SIGTERM']) process.on(signal,()=>{stopping=true;abort.abort();server.close();});
+if (!sample && !missing.length) {
   while (!stopping) {
-    let client;
     try {
-      client = new ImapFlow({host:config.host,port:imapPort,secure:true,auth:await mailboxAuth(process.env),logger:false,connectionTimeout:20_000,greetingTimeout:20_000,socketTimeout:60_000});
-      activeClient=client;
-      client.on('error',()=>{status='disconnected';client.close();});
-      await client.connect();
-      await scanMailbox(client,state,config,()=>saveState(statePath,state),backfillDays);
+      await checkReceiver(api, config);
       lastCheckedAt=new Date().toISOString();status='connected';
-      await client.logout();
-      console.log(`Mailbox checked: ${state.events.length} camera events stored.`);
-    } catch {status='disconnected';console.error('Mailbox check failed; check credentials, mailbox, and connectivity.');if(once)process.exitCode=1;}
-    finally {client?.close();activeClient=null;}
+      if (once) console.log('Resend webhook configuration verified.');
+    } catch {status='disconnected';console.error('Resend configuration check failed; check API access and webhook settings.');if(once)process.exitCode=1;}
     if (once || stopping) break;
     try {await delay(interval*1000,undefined,{signal:abort.signal});} catch {break;}
   }

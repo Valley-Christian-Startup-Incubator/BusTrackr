@@ -25,6 +25,8 @@ NODE_OPTIONS=--dns-result-order=ipv4first npx expo start --localhost
 
 ## Connect the status service
 
+Production URL: `https://bustrackr.valleychristianai.com/api/shuttle`.
+
 Open **Connection settings**, enter the HTTPS status URL, and select **Connect to feed**. The URL must end in `/api/shuttle`. A bare origin gets that path automatically. The app saves the URL locally and immediately requests it. Failed or invalid responses show **Feed unavailable**. Select **Use sample data** to return to the demo.
 
 You can also copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SHUTTLE_API_URL` before starting or building. A saved selection takes precedence. `EXPO_PUBLIC_*` variables are public in the app bundle. Never put an account password, app password, OAuth token, or mailbox credential in them.
@@ -39,7 +41,7 @@ Use the computer's LAN address, for example `http://192.168.1.20:8787/api/shuttl
 
 The sample worker persists its first sighting and its startup check time. After two minutes the mobile app intentionally treats that check as stale. Restart the worker for a fresh check. The built-in sample mode is independent and remains usable without the worker.
 
-Live Gmail still requires the account owner to complete 2-Step Verification and supply an app password or authorized OAuth grant to the server. The production schedule remains unconfirmed and empty. See [camera worker setup](../docs/camera-alerts.md).
+Live camera ingestion uses a signed Resend inbound webhook. Configure the receiving address, API key, webhook secret, ID, and public URL on the server. The production schedule remains unconfirmed and empty. See [camera worker setup](../docs/camera-alerts.md).
 
 ## Check the app
 
@@ -87,7 +89,7 @@ Use Campus, Full route, Fehren, Buildings, and Sports to change the camera. Drag
 
 The generated scene is committed so mobile builds work independently. After changing scene code or assets, run `npm run build:mobile-scene` at the repository root. Run `npm run check:mobile-scene` to verify deterministic packaging, offline rendering, camera controls, marker expiry, and rendering suspension. Install the test browser first with `npx playwright install chromium`.
 
-Polling runs every ten seconds while foregrounded, with a ten-second request timeout. Failed requests, backgrounding, source changes, and responses older than 45 seconds hide estimates. Mailbox checks older than 120 seconds also hide estimates, even if the API is reachable. This is a conservative client policy; configure worker polling below 30 seconds or adapt both policies together. Timestamps more than 30 seconds ahead are rejected for freshness. A fresh feed can legitimately contain an old camera observation.
+Polling runs every ten seconds while foregrounded, with a ten-second request timeout. Failed requests, backgrounding, source changes, and responses older than 45 seconds hide estimates. Mailbox checks older than 120 seconds also hide estimates, even if the API is reachable. This is a conservative client policy; keep the server Resend health interval at 30 seconds or adapt both policies together. Timestamps more than 30 seconds ahead are rejected for freshness. A fresh feed can legitimately contain an old camera observation.
 
 The app retains the last validated observation for the current source after a refresh failure. It does not persist observations across app restarts. Only the source URL or sample selection is stored locally.
 

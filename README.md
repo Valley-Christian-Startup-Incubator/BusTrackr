@@ -24,7 +24,9 @@ The production base path is `/BusTrackr/`.
 
 ## Camera email alerts
 
-An IMAP worker and detection API scaffold are available for an existing mailbox. No domain is required. Run `npm run alerts:sample` to try the bundled alert and `npm run test:alerts` to verify it. See [camera alert setup](docs/camera-alerts.md) for credentials, hosting, and limitations. The default camera view shows timestamped observations and a separate estimated marker; Scene demo retains the simulated fleet. Production estimates require a confirmed timetable. [Research and design decisions](docs/arrival-estimation-research.md) explains the baseline and XGBoost upgrade path.
+Production API: `https://bustrackr.valleychristianai.com/api/shuttle`, hosted on `valley-big-mac` through Cloudflare Tunnel.
+
+A signed Resend inbound-email webhook feeds the camera history and detection API. Gmail polling is no longer used. Run `npm run alerts:sample` to try the bundled alert and `npm run test:alerts` to verify it. See [camera alert setup](docs/camera-alerts.md) for credentials, hosting, and limitations. The default camera view shows timestamped observations and a separate estimated marker; Scene demo retains the simulated fleet. Production estimates require a confirmed timetable. [Research and design decisions](docs/arrival-estimation-research.md) explains the baseline and XGBoost upgrade path.
 
 ## Scene
 

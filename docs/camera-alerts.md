@@ -17,13 +17,13 @@ The dev server proxies `/api` to port 8787. Production requires `VITE_ALERT_API_
 
 ## Hosted backend setup
 
-The backend is already deployed in [Vercel's bustrackr-api project](https://vercel.com/thatxliners-projects/bustrackr-api), with a connected private Blob store. You do not need another server.
+Production runs on `valley-big-mac` at `/Users/aimac/apps/bustrackr`, behind a dedicated Cloudflare Tunnel. Persistent state is local to that machine. Vercel is no longer the production backend.
 
 | Purpose | URL |
 | --- | --- |
-| Resend webhook (POST) | `https://bustrackr-api.vercel.app/api/resend/inbound` |
-| Health (GET) | `https://bustrackr-api.vercel.app/api/health` |
-| App status feed (GET) | `https://bustrackr-api.vercel.app/api/shuttle` |
+| Resend webhook (POST) | `https://bustrackr.valleychristianai.com/api/resend/inbound` |
+| Health (GET) | `https://bustrackr.valleychristianai.com/api/health` |
+| App status feed (GET) | `https://bustrackr.valleychristianai.com/api/shuttle` |
 
 ### 1. Choose the receiving address
 
@@ -33,28 +33,39 @@ In the **new Resend account**, open **Emails → Receiving**, then the three-dot
 
 In Resend's **Webhooks** page, add the exact URL above, subscribe to **`email.received`**, and leave the webhook enabled. Save its **ID** and **signing secret** (`whsec_...`). The ID is not the signing secret or a delivered event's ID. Create an API key in this same account that can read received emails and webhook configuration; a sending-only key cannot run this backend. See [Resend webhook setup](https://resend.com/docs/webhooks/introduction).
 
-### 3. Configure Production on Vercel
+### 3. Configure the Mac backend
 
-Open [Settings → Environment Variables](https://vercel.com/thatxliners-projects/bustrackr-api/settings/environment-variables). Select **Production** and add these four values:
+SSH to the machine and edit the private environment file:
 
-| Variable | Value |
-| --- | --- |
-| `RESEND_API_KEY` | New account's API key; store as a secret |
-| `RESEND_WEBHOOK_SECRET` | New webhook's `whsec_...` signing secret; store as a secret |
-| `RESEND_WEBHOOK_ID` | New webhook's ID |
-| `RESEND_INBOUND_ADDRESS` | Exact camera recipient chosen in step 1 |
+```sh
+ssh valley-big-mac
+nano /Users/aimac/apps/bustrackr/.env.server
+```
 
-The complete template is [hosting/.env.example](../hosting/.env.example). `RESEND_WEBHOOK_URL`, `CAMERA_SENDER=avigilonalerts@vcs.net`, and `CAMERA_MARKER=BEI Bus has arrived.` are already set in Production. Change the sender or marker if actual alerts differ. `CAMERA_SUBJECT` is optional. The connected store manages `BLOB_READ_WRITE_TOKEN`; do not overwrite it with a blank value.
+Fill in these four values from the new Resend account:
 
-For the GitHub Pages web frontend, also set `ALERT_ALLOWED_ORIGIN=https://thatxliner.github.io` (an origin has no `/BusTrackr/` path). Native apps do not require CORS.
+```dotenv
+RESEND_API_KEY=
+RESEND_WEBHOOK_SECRET=
+RESEND_WEBHOOK_ID=
+RESEND_INBOUND_ADDRESS=
+```
 
-After saving variables, open **Deployments**, select the latest production deployment, and **Redeploy**. Saving a local `.env` file or changing dashboard variables alone does not update an existing deployment.
+The complete tracked template is [`.env.server.example`](../.env.server.example). The deployed file already has the new webhook URL, camera sender/marker, port `18787`, persistent state path and GitHub Pages CORS origin. Keep actual credentials only in the private file (mode 600). No Vercel variables or Blob token are required.
+
+Restart the backend after saving:
+
+```sh
+launchctl kickstart -k user/$(id -u)/com.valley.bustrackr
+```
+
+If you already created a Resend webhook for Vercel, change its endpoint to the new URL and use that webhook's ID and signing secret here. Do not run two active webhooks for the same feed unless intentionally testing duplicates.
 
 ### 4. Point the camera at Resend and verify
 
 Set the camera's alert recipient to exactly `RESEND_INBOUND_ADDRESS`. Keep its existing sending/SMTP settings; Resend is receiving these messages. Direct delivery is preferred. A forwarded message must preserve the required sender and pass the backend's authentication checks.
 
-Open the health URL. Expected result: `status: "connected"`, `storage: "connected"`, and `missing: []`. Before configuration, health reports `needs_configuration` and the webhook returns HTTP 503. A configured but unsigned POST is rejected with HTTP 400. Opening the POST webhook in a browser is not a delivery test.
+Open the health URL. Expected result: `status: "connected"`, `storage: "local"`, and `missing: []`. Before configuration, health reports `needs_configuration` and the webhook returns HTTP 503. A configured but unsigned POST is rejected with HTTP 400. Opening the POST webhook in a browser is not a delivery test.
 
 Trigger a genuine camera alert. Confirm it appears in Resend's Receiving tab and its `email.received` webhook delivery returns HTTP 200. Then open the app status URL: `latest` must contain the actual camera timestamp and `eventCount` must increase. HTTP 200 alone does not prove an alert was stored: unrelated or filtered messages are acknowledged but ignored. The message must match the sender and recipient, have DKIM or DMARC `pass`, and contain the configured marker with a valid timestamp such as `[2026-Oct-16 02:06:43 PM (PDT)] BEI Bus has arrived.` using the actual event time.
 
@@ -62,53 +73,54 @@ Replay failed deliveries from Resend after correcting configuration. There is no
 
 ### 5. Connect the clients
 
-In the mobile app's **Connection settings**, enter `https://bustrackr-api.vercel.app/api/shuttle` and select **Connect to feed**. Or copy `mobile/.env.example` to `mobile/.env.local`, set `EXPO_PUBLIC_SHUTTLE_API_URL` to that URL, and restart/rebuild the app. A saved connection selection takes precedence.
+In the mobile app's **Connection settings**, enter `https://bustrackr.valleychristianai.com/api/shuttle` and select **Connect to feed**. Or copy `mobile/.env.example` to `mobile/.env.local`, set `EXPO_PUBLIC_SHUTTLE_API_URL` to that URL, and restart/rebuild the app. A saved connection selection takes precedence.
 
-For the web frontend, copy root `.env.example` to `.env.local`, set `VITE_ALERT_API_URL=https://bustrackr-api.vercel.app/api/shuttle`, and rebuild/redeploy the frontend. For CI builds, set the variable in that build environment. Both client variables are public; never put Resend credentials in them.
+For the web frontend, copy root `.env.example` to `.env.local`, set `VITE_ALERT_API_URL=https://bustrackr.valleychristianai.com/api/shuttle`, and rebuild/redeploy the frontend. For CI builds, set the variable in that build environment. Both client variables are public; never put Resend credentials in them.
 
 A working feed supplies observations. Position estimates also require the confirmed timetable described below; the checked-in schedule is intentionally empty and unconfirmed.
 
-### Templates and redeployment
+### Templates, persistence and operations
 
-Commit the examples, never the filled-in files:
+Commit example files, never filled-in files. Root `.env.server.example` is the backend template; root `.env.example` and `mobile/.env.example` contain only public client settings. `hosting/` retains the old Vercel implementation for reference and is not used in production.
 
-| Tracked template | Purpose | Local copy, if needed |
-| --- | --- | --- |
-| `hosting/.env.example` | Hosted backend variable reference | `hosting/.env.local` (does not configure Production) |
-| `.env.server.example` | Standalone local Node worker | `.env.server` |
-| `.env.example` | Public web frontend | `.env.local` |
-| `mobile/.env.example` | Public native app | `mobile/.env.local` |
+The backend uses a private Node 24.22.1 runtime at `/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64`. It does not change the system Node version. State lives at `/Users/aimac/apps/bustrackr/.data/alerts.json` and survives service restarts and deployments. Keep this directory and `.env.server` when updating code. Back up the state file as part of the machine's backup policy; no off-machine backup has been configured by this deployment.
 
-To deploy backend code or timetable changes from the repository root:
+Two LaunchAgents run as `aimac`, with automatic restart on failure: `com.valley.bustrackr` and `com.cloudflare.bustrackr`. They are loaded in the `user/501` launchd domain. After a reboot, establish an `aimac` login session and verify both services; if absent, bootstrap the two plists in `~/Library/LaunchAgents` with `launchctl bootstrap user/$(id -u) <plist>`. They are not system LaunchDaemons, so unattended boot before login is not configured. Inspect them remotely:
 
 ```sh
-npm ci
-node scripts/package-backend.mjs
-npm ci --prefix hosting
-npm run test:alerts
-# On a fresh clone, link to the existing project first:
-npx vercel@65.8.0 --scope thatxliners-projects --cwd hosting link --project bustrackr-api --yes
-npx vercel@65.8.0 --scope thatxliners-projects --cwd hosting deploy --prod
+ssh valley-big-mac 'launchctl print user/$(id -u)/com.valley.bustrackr; launchctl print user/$(id -u)/com.cloudflare.bustrackr'
+ssh valley-big-mac 'tail -n 50 ~/apps/bustrackr/logs/com.valley.bustrackr.err.log'
 ```
 
-The packaging script copies backend modules and the timetable into ignored `hosting/server/`. Edit the originals in `server/`. The deployment excludes local environment files and mobile/3D assets. Private Blob stores history, receipt IDs and pending failures across deployments; conditional writes protect concurrent updates. Local JSON state is separate and is not uploaded automatically.
+The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards only `bustrackr.valleychristianai.com` to `127.0.0.1:18787`. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
+
+To update backend code from the repository root:
+
+```sh
+npm run test:alerts
+scp server/index.mjs server/resend.mjs server/alerts.mjs server/estimator.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
+scp deploy/package.json deploy/package-lock.json valley-big-mac:apps/bustrackr/
+ssh valley-big-mac 'cd ~/apps/bustrackr && PATH="$HOME/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin:$PATH" npm ci --omit=dev --ignore-scripts && launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
+```
+
+This restarts the single worker briefly; Resend can retry deliveries during downtime. Do not overwrite `.env.server` or `.data/` while deploying.
 
 ## Standalone local worker (optional)
 
-For a local live receiver, copy `.env.server.example` to `.env.server` and fill in the Resend variables. Its webhook URL must point to a public HTTPS reverse proxy or tunnel reaching this local worker, with a corresponding Resend webhook ID and secret. The hosted URL continues to route to Vercel, not your laptop.
+For a local live receiver, copy `.env.server.example` to `.env.server`, set `ALERT_PORT=8787` to match the Vite development proxy, and fill in the Resend variables. Its webhook URL must point to a public HTTPS reverse proxy or tunnel reaching this local worker, with a corresponding Resend webhook ID and secret. The hosted URL continues to route to valley-big-mac, not your laptop.
 
 ```sh
 npm run alerts:check
 npm run alerts
 ```
 
-The check verifies webhook configuration, not camera delivery. The sample mode above needs no credentials. Local `RESEND_HEALTH_SECONDS=30` controls configuration checks only; the cloud handler checks configuration on status requests.
+The check verifies webhook configuration, not camera delivery. The sample mode above needs no credentials. Local `RESEND_HEALTH_SECONDS=30` controls configuration checks only; the production Mac worker uses the same interval.
 
 ## Processing behavior
 
 Incoming requests use raw-body Svix signature verification with timestamp tolerance. Only events for `RESEND_INBOUND_ADDRESS` trigger an email-content fetch. The fetched email must also match that recipient and have Resend-computed DKIM or DMARC `pass`; missing or failed authentication is ignored. The existing parser then requires the configured sender and marker and a valid Pacific camera timestamp. No emails are sent, moved, or deleted.
 
-The receiver acknowledges duplicates and irrelevant mail with HTTP 200. API or persistence failures return 503 so Resend retries. Writes are acknowledged only after persistence; the local worker serializes writes and the hosted backend uses conditional updates. Retry IDs survive restarts. Bodies are fetched and parsed transiently. Attachments are never downloaded or stored. Only parsed event metadata, receipt IDs, and pending delivery IDs are persisted. Responses are limited to 2 MB and webhook bodies to 64 KB.
+The receiver acknowledges duplicates and irrelevant mail with HTTP 200. API or persistence failures return 503 so Resend retries. Writes are acknowledged only after persistence; the worker serializes writes. Retry IDs survive restarts. Bodies are fetched and parsed transiently. Attachments are never downloaded or stored. Only parsed event metadata, receipt IDs, and pending delivery IDs are persisted. Responses are limited to 2 MB and webhook bodies to 64 KB.
 
 `RESEND_HEALTH_SECONDS` defaults to 30 and only checks webhook configuration. It does not poll emails. The existing `lastCheckedAt` API field now reports that successful configuration check for client compatibility. A quiet inbox remains healthy. Disabled/mismatched webhook settings, API failures, stale health checks, or unresolved ingestion failures suppress position estimates. Configuration health alone cannot detect a camera that stopped sending or a broken public reverse proxy.
 
@@ -116,7 +128,7 @@ There is no automatic historical backfill. Replay missed `email.received` events
 
 ## Configure a real timetable
 
-`server/schedule.json` deliberately starts with `confirmed:false` and no runs. Copy the structure of `server/schedule.example.json`, replace every illustrative value with confirmed service details, then set `confirmed:true`. Repackage and redeploy the hosted backend after changes, or restart a local worker. Required values per run:
+`server/schedule.json` deliberately starts with `confirmed:false` and no runs. Copy the structure of `server/schedule.example.json`, replace every illustrative value with confirmed service details, then set `confirmed:true`. Deploy the timetable and restart the worker after changes. Required values per run:
 
 - A unique stable run ID and operating weekdays (0 Sunday through 6 Saturday).
 - Scheduled checkpoint crossing time in America/Los_Angeles, as `HH:mm`.
@@ -131,7 +143,7 @@ Use `excludedDates` for known school holidays and `matchWindowSeconds` to tune a
 
 `GET /api/shuttle` and the compatible `/api/detections/latest` return worker `status`, `lastCheckedAt`, `latest`, `eventCount`, and `prediction`. A prediction includes its model/schedule versions and generation time; active estimates include anchor type, range, estimated arrival time and a marker with direction, progress and lower/upper progress bounds. A missing marker means no usable position estimate. Worker states are connecting, connected, disconnected and sample. Prediction states include unconfigured, scheduled, estimated, ambiguous, unknown and offline. Ranges are labelled heuristic, not calibrated probabilities.
 
-Hosted history and processed receipt IDs live in private Blob storage. The standalone worker stores them in `.data/alerts.json`; both survive restart. Every distinct matching email is retained, including delayed/out-of-order arrivals. Message-ID retries are deduplicated; nearby separate emails have `duplicateOf` set, using a provisional 30-second grouping window. This can merge two nearby buses; raw history remains available to revise grouping. No email body/attachment is stored in history. No public history endpoint is exposed.
+Production history and processed receipt IDs live in `.data/alerts.json` on valley-big-mac and survive restart. Every distinct matching email is retained, including delayed/out-of-order arrivals. Message-ID retries are deduplicated; nearby separate emails have `duplicateOf` set, using a provisional 30-second grouping window. This can merge two nearby buses; raw history remains available to revise grouping. No email body/attachment is stored in history. No public history endpoint is exposed.
 
 Export local event history as JSON lines:
 
@@ -145,7 +157,7 @@ Set `ALERT_STATE_FILE` explicitly to export another state file. Legacy latest-on
 
 `npm run test:alerts` covers timestamp parsing, HTML email, filtering, persistent history, duplicates, schedule estimation, ambiguity, DST, delayed delivery, signed webhook delivery, recipient/authentication filtering, concurrent duplicates, retryable failures and the real sample HTTP server. `npm run build` checks the frontend and scene assets. Live delivery requires the new Resend account, a reachable HTTPS webhook and a genuine camera message.
 
-If self-hosting the standalone worker instead of using the deployed Vercel backend, use an always-on host with persistent storage and backups. Its default bind is loopback; place a TLS reverse proxy in front. Configure an exact `ALERT_ALLOWED_ORIGIN` for a separately hosted frontend. CORS is not authentication: the status API is public, so add deployment access controls if operational status should be private. API responses contain no-store headers. Feed failure hides estimated positions while retaining the timestamped last observation. The JSON store requires a single writer; move to a transactional database when scale or multiple workers require it.
+If self-hosting the standalone worker instead of using the deployed Mac backend, use an always-on host with persistent storage and backups. Its default bind is loopback; place a TLS reverse proxy in front. Configure an exact `ALERT_ALLOWED_ORIGIN` for a separately hosted frontend. CORS is not authentication: the status API is public, so add deployment access controls if operational status should be private. API responses contain no-store headers. Feed failure hides estimated positions while retaining the timestamped last observation. The JSON store requires a single writer; move to a transactional database when scale or multiple workers require it.
 
 See [arrival estimation research and design decisions](arrival-estimation-research.md) for the evidence, assumptions, ML upgrade path and traffic-provider restrictions.
 
