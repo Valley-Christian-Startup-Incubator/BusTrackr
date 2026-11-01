@@ -9,3 +9,5 @@ __pycache__/
 .audit/
 !.env.server.example
 .data/
+
+.taste-skill/

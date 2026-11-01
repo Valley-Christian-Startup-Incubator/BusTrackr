@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Support · BusTrackr</title>
-  <meta name="description" content="Answers to common BusTrackr questions, and how to report a problem on GitHub.">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="How to read the BusTrackr feed, answers to common questions, and how to report a problem on GitHub.">
+  <meta name="theme-color" content="#ffc91f">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -13,79 +13,128 @@
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="index.html"><img src="assets/icon.svg" alt="" width="30" height="30">BusTrackr</a>
+      <a class="brand" href="index.html">BusTrackr</a>
       <nav class="site-nav" aria-label="Main">
         <a href="support.html" aria-current="page">Support</a>
-        <a class="button" href="https://thatxliner.github.io/BusTrackr/">Open web app</a>
+        <a class="button" href="https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/">Open web app</a>
       </nav>
     </div>
   </header>
 
-  <main id="main" class="narrow doc">
-    <h1>Support</h1>
-    <p class="lede">Support happens in GitHub issues. BusTrackr has no support email or phone line.</p>
-    <div class="actions">
-      <a class="button" href="https://github.com/ThatXliner/BusTrackr/issues/new">Report a problem</a>
-      <a class="button secondary" href="https://github.com/ThatXliner/BusTrackr/issues">See open issues</a>
+  <main id="main">
+    <div class="doc-head">
+      <div class="wrap">
+        <h1>Support</h1>
+        <p class="lede">Support happens in GitHub issues. BusTrackr has no support email or phone line.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/issues/new">Report a problem</a>
+          <a class="button secondary" href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/issues">See open issues</a>
+        </div>
+      </div>
     </div>
 
-    <section>
-      <h2>Why is there no arrival time?</h2>
-      <p>The production timetable isn't confirmed, so the app shows "No confirmed timetable" and hides every estimate. It will stay that way until an operator confirms the timetable and the checkpoint direction.</p>
-    </section>
+    <div class="wrap doc">
+      <section id="reading">
+        <h2>How to read the feed</h2>
+        <p>A sighting is a fact, an estimate is a guess, and the map is a model. BusTrackr labels each one so you can tell them apart.</p>
+        <h3>Camera sightings</h3>
+        <p>A camera at one checkpoint emails an alert when a bus enters its zone. BusTrackr shows the time the camera recorded, in Pacific time, and never shows email delivery time as camera time. A sighting doesn't identify the vehicle or its direction, and doesn't prove the bus has left.</p>
+        <h3>Arrival estimates and the amber marker</h3>
+        <p>When the server has a usable prediction, the app shows a range in minutes and an amber marker on the route. Ranges are labelled heuristic, not calibrated. Estimates need a confirmed timetable, which doesn't exist yet, and responses older than 45 seconds remove the estimate.</p>
+        <h3>The 3D scene</h3>
+        <p>USGS elevation data and OpenStreetMap footprints become a 3D campus and route. There's no GPS tracking and no location permission. The native app bundles the scene, so its map makes no network requests.</p>
+      </section>
 
-    <section>
-      <h2>Why is the last observation days old?</h2>
-      <p>It's the most recent camera alert the server has received. A working feed can still hold an old observation, and the server can't tell a quiet camera from one that stopped sending.</p>
-    </section>
+      <section>
+        <h2>Why is there no arrival time?</h2>
+        <p>The production timetable isn't confirmed, so the app shows "No confirmed timetable" and hides every estimate. It will stay that way until an operator confirms the timetable and the checkpoint direction.</p>
+      </section>
 
-    <section>
-      <h2>Does a sighting mean the shuttle is there now?</h2>
-      <p>No. A sighting means the camera detected a vehicle at that time. It doesn't identify the shuttle, its direction, or whether it has left.</p>
-    </section>
+      <section>
+        <h2>Why is the last observation days old?</h2>
+        <p>It's the most recent camera alert the server has received. A working feed can still hold an old observation, and the server can't tell a quiet camera from one that stopped sending.</p>
+      </section>
 
-    <section>
-      <h2>Is the amber marker GPS?</h2>
-      <p>No. It's a model estimate along the route. BusTrackr has no GPS feed and doesn't use your phone's location.</p>
-    </section>
+      <section>
+        <h2>Does a sighting mean the shuttle is there now?</h2>
+        <p>No. A sighting means the camera detected a vehicle at that time. It doesn't identify the shuttle, its direction, or whether it has left.</p>
+      </section>
 
-    <section>
-      <h2>What do "Feed unavailable" and "Waiting for fresh data" mean?</h2>
-      <p>"Feed unavailable" means the status request failed or the service reported a problem. "Waiting for fresh data" means the response is over 45 seconds old or the server's last feed check is over two minutes old. Both hide estimates. Choose Try again or pull down to refresh. The 3D map keeps working.</p>
-    </section>
+      <section>
+        <h2>Is the amber marker GPS?</h2>
+        <p>No. It's a model estimate along the route. BusTrackr has no GPS feed and doesn't use your phone's location.</p>
+      </section>
 
-    <section>
-      <h2>The 3D map won't load</h2>
-      <p>Choose Reload 3D map. The app offers it if the scene takes over 60 seconds or the renderer stops. If it keeps happening, report your phone model and OS version in an issue.</p>
-    </section>
+      <section id="states">
+        <h2>What each status means</h2>
+        <table>
+          <thead><tr><th scope="col">What you see</th><th scope="col">What it means</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">No confirmed timetable</th><td>An operator hasn't confirmed the timetable and checkpoint direction. This is the production state today.</td></tr>
+            <tr><th scope="row">No clear run match</th><td>More than one run could match, so no arrival or vehicle position is shown.</td></tr>
+            <tr><th scope="row">No active run confirmed</th><td>A missing estimate doesn't mean the shuttle has arrived or been cancelled.</td></tr>
+            <tr><th scope="row">Waiting for the next run</th><td>The app shows the next timetable time, labelled as a schedule and not an observed arrival.</td></tr>
+            <tr><th scope="row">Waiting for fresh data</th><td>The response is over 45 seconds old or the server's last feed check is over two minutes old, so estimates are hidden until the feed refreshes.</td></tr>
+            <tr><th scope="row">Feed unavailable</th><td>The status request failed or the service reported a problem. The app keeps the last sighting and hides estimates. Choose Try again or pull down to refresh. The 3D map keeps working.</td></tr>
+            <tr><th scope="row">Sample data banner</th><td>A yellow banner marks illustrative data. It stays visible for as long as the sample is on screen.</td></tr>
+          </tbody>
+        </table>
+      </section>
 
-    <section>
-      <h2>I see a yellow "Sample data" banner</h2>
-      <p>You're looking at illustrative data, not a real shuttle. Open Connection settings and connect to <code>https://bustrackr.valleychristianai.com/api/shuttle</code>.</p>
-    </section>
+      <section id="map">
+        <h2>Using the 3D map</h2>
+        <ul>
+          <li><strong>Campus, Full route, Fehren, Buildings, Sports:</strong> one tap moves the camera.</li>
+          <li><strong>Pan or Orbit:</strong> choose what a one-finger drag does.</li>
+          <li><strong>Zoom:</strong> pinch, or use the plus and minus buttons.</li>
+          <li><strong>Locate estimate:</strong> centers the amber marker. It's disabled when there's no estimate.</li>
+          <li><strong>Expand map:</strong> hides the cards until you choose Show details.</li>
+        </ul>
+        <p>The web app's Scene demo simulates its buses and their arrival times, and labels them that way.</p>
+        <p>The scene is an independent reconstruction, not photogrammetry. Facades and small features are approximate, and route alignment, road widths and service access still need school confirmation.</p>
+      </section>
 
-    <section>
-      <h2>Where can I download the app?</h2>
-      <p>You can't yet. The iOS and Android apps are unreleased and aren't in either app store. Use the <a href="https://thatxliner.github.io/BusTrackr/">3D web app</a>, or follow the <a href="https://github.com/ThatXliner/BusTrackr/blob/main/mobile/README.md">setup guide</a> to run the native app from source.</p>
-    </section>
+      <section>
+        <h2>The 3D map won't load</h2>
+        <p>Choose Reload 3D map. The app offers it if the scene takes over 60 seconds or the renderer stops. If it keeps happening, report your phone model and OS version in an issue.</p>
+      </section>
 
-    <section>
-      <h2>Reporting a problem</h2>
-      <p>Tell us what you expected, what happened, and the status text the app showed. Add your phone or browser version and a screenshot if you can. Issues are public, so leave out anything personal.</p>
-      <p>GitHub issues cover the software only. For questions about the shuttle service itself, contact the shuttle operator.</p>
-    </section>
+      <section>
+        <h2>I see a yellow "Sample data" banner</h2>
+        <p>You're looking at illustrative data, not a real shuttle. Open Connection settings and connect to <code>https://bustrackr.valleychristianai.com/api/shuttle</code>.</p>
+      </section>
+
+      <section id="availability">
+        <h2>Where can I download the app?</h2>
+        <p>You can't yet. The iOS and Android apps are unreleased and aren't in either app store. They're built with Expo and tested in the iOS Simulator. Android runtime and physical phones haven't been verified.</p>
+        <p>Use the <a href="https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/">3D web app</a>, which needs no account, or follow the <a href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/blob/main/mobile/README.md">setup guide</a> to run the native app from source.</p>
+      </section>
+
+      <section>
+        <h2>How complete is the camera feed?</h2>
+        <p>Partly live. Real camera alerts reach the server through a signed email webhook. As of November 1, 2026, the feed holds one, from October 30. Arrival estimates stay off until there's a confirmed timetable.</p>
+      </section>
+
+      <section>
+        <h2>Reporting a problem</h2>
+        <p>Tell us what you expected, what happened, and the status text the app showed. Add your phone or browser version and a screenshot if you can. Issues are public, so leave out anything personal.</p>
+        <p>GitHub issues cover the software only. For questions about the shuttle service itself, contact the shuttle operator.</p>
+      </section>
+    </div>
   </main>
 
   <footer class="site-footer">
     <div class="wrap">
+      <p class="monument" aria-hidden="true"><span>BusTrackr</span></p>
       <nav class="footer-links" aria-label="Footer">
         <a href="index.html">Home</a>
         <a href="privacy.html">Privacy</a>
         <a href="support.html" aria-current="page">Support</a>
-        <a href="https://github.com/ThatXliner/BusTrackr">GitHub</a>
+        <a href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
       </nav>
-      <p>© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+      <p class="credits">© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
     </div>
   </footer>
+  <script src="site.js"></script>
 </body>
 </html>

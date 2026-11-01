@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BusTrackr: camera sightings and a 3D map for the Fehren–Skyway shuttle</title>
-  <meta name="description" content="BusTrackr shows real camera sightings and a detailed 3D model of the Fehren–Skyway shuttle route. With no confirmed timetable, it shows no arrival estimate.">
-  <meta name="theme-color" content="#ffffff">
+  <title>BusTrackr: check the Fehren–Skyway shuttle</title>
+  <meta name="description" content="See the last camera sighting on the Fehren–Skyway shuttle route, then open the whole route in 3D.">
+  <meta name="theme-color" content="#ffc91f">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -13,13 +13,9 @@
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="index.html"><img src="assets/icon.svg" alt="" width="30" height="30">BusTrackr</a>
+      <span class="route-name">Fehren to Skyway</span>
       <nav class="site-nav" aria-label="Main">
-        <a class="section-link" href="#data">The data</a>
-        <a class="section-link" href="#map">3D map</a>
-        <a class="section-link" href="#availability">Availability</a>
         <a href="support.html">Support</a>
-        <a class="button" href="https://thatxliner.github.io/BusTrackr/">Open web app</a>
       </nav>
     </div>
   </header>
@@ -27,247 +23,147 @@
   <main id="main">
     <section class="hero">
       <div class="wrap">
-        <div class="hero-grid">
-          <div>
-            <p class="route-mark"><span>Fehren</span><i></i><b></b><i></i><span>Skyway</span></p>
-            <h1>Shuttle info that only says what it knows.</h1>
-          </div>
-          <div>
-            <p class="lede">BusTrackr pairs real camera sightings with a detailed 3D model of the route. If the data can't support an arrival estimate, you don't get one.</p>
-            <div class="actions">
-              <a class="button" href="https://thatxliner.github.io/BusTrackr/">Open the 3D web app</a>
-              <a class="button secondary" href="https://github.com/ThatXliner/BusTrackr">View on GitHub</a>
-            </div>
-            <p class="availability small muted">The iOS and Android apps are unreleased and not in any app store.</p>
+        <h1 class="monument"><span>BusTrackr</span></h1>
+        <div class="hero-row">
+          <p class="lede">Check the Fehren–Skyway shuttle before you walk. See the last camera sighting, then open the whole route in 3D.</p>
+          <div class="hero-action">
+            <a class="button" href="https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/">Open web app</a>
+            <p class="hero-live" id="hero-live">Live status unavailable</p>
           </div>
         </div>
-        <figure class="hero-media">
-          <div class="crop crop--desktop crop--campus"><img src="assets/scene-campus.png" width="1440" height="900" alt="3D model of Skyway campus: main buildings, a pool, a baseball diamond, a stadium and parking, with houses on the far side."></div>
-          <figcaption>Skyway campus in the BusTrackr 3D scene. This is a modeled reconstruction, not a photograph. Cropped from the web app.</figcaption>
+      </div>
+      <figure class="panorama">
+        <div class="crop crop--campus"><img src="assets/scene-campus.png" width="1440" height="900" fetchpriority="high" alt="3D model of Skyway Campus: main buildings, a pool, a baseball diamond, a stadium and parking, with houses on the far side."></div>
+        <figcaption class="wrap">Skyway Campus in the BusTrackr 3D scene. A model, not a photograph.</figcaption>
+      </figure>
+    </section>
+
+    <section class="board" id="sighting" aria-labelledby="sighting-title">
+      <div class="wrap board-grid">
+        <div class="board-copy">
+          <h2 id="sighting-title" data-rise>Last camera sighting</h2>
+          <p class="board-time" id="sighting-time" data-rise>Unavailable</p>
+          <p class="lede" id="sighting-place" aria-live="polite" data-rise>The status feed can't be reached right now.</p>
+          <dl class="facts" data-rise>
+            <div><dt>Arrival estimate</dt><dd id="feed-estimate">Off: feed unavailable</dd></div>
+            <div><dt>Status feed</dt><dd id="feed-state">Unavailable</dd></div>
+          </dl>
+          <p class="board-note" data-rise>A sighting says when a camera saw a vehicle, not where it is now. Times are Pacific. <a href="support.html#reading">How to read the feed</a></p>
+        </div>
+        <figure class="route" data-rise>
+          <figcaption>The full route in 3D. A model, not a live position.</figcaption>
+          <div class="crop crop--route"><img src="assets/app-live-feed.png" width="1206" height="2622" loading="lazy" alt="Overhead 3D view of the shuttle corridor, with Skyway Campus at the top and the road running off toward Fehren."></div>
         </figure>
       </div>
     </section>
 
-    <section class="feed" aria-labelledby="feed-title">
-      <div class="wrap">
-        <div class="feed-head">
-          <h2 id="feed-title">Feed status</h2>
-          <p class="small muted" id="feed-note" aria-live="polite">Checking the live feed…</p>
+    <section class="views" id="views" aria-labelledby="views-title">
+      <div class="band" aria-hidden="true">
+        <div class="band-track">
+          <div><span>Campus</span><i></i><span>Full route</span><i></i><span>Fehren</span><i></i><span>Buildings</span><i></i><span>Sports</span><i></i></div>
+          <div><span>Campus</span><i></i><span>Full route</span><i></i><span>Fehren</span><i></i><span>Buildings</span><i></i><span>Sports</span><i></i></div>
         </div>
-        <dl class="feed-grid">
-          <div><dt><span class="dot" id="feed-dot"></span>Status feed</dt><dd id="feed-state">Checking…</dd></div>
-          <div><dt><span class="dot teal"></span>Last camera observation</dt><dd id="feed-observed">Checking…</dd></div>
-          <div><dt>Camera emails saved</dt><dd id="feed-count">—</dd></div>
-          <div><dt><span class="dot amber"></span>Arrival estimates</dt><dd id="feed-estimate">Checking…</dd></div>
-        </dl>
       </div>
-    </section>
-
-    <section class="section" id="app">
-      <div class="wrap app-grid">
-        <figure class="app-shot">
-          <div class="crop crop--phone"><img src="assets/app-live-feed.png" width="1206" height="2622" loading="lazy" alt="BusTrackr on a phone. A 3D full route view with camera buttons fills the top half. Below it the status reads Feed connected, the arrival estimate card reads No confirmed timetable, and the last observation card reads BEI campus corner, 2 days ago, Oct 30 at 2:35 PM PDT."></div>
-          <figcaption>The native app in Expo Go on an iPhone 17 Pro simulator, connected to the production feed on November 1, 2026. Cropped below the app header to remove Expo Go's developer button.</figcaption>
+      <div class="wrap views-body">
+        <div class="views-head">
+          <h2 id="views-title" data-rise>The whole route, down to the roofs.</h2>
+          <p data-rise>Terrain, roads, playing fields and trees are modeled from USGS elevation and OpenStreetMap data. Jump to Campus, Full route, Fehren, Buildings or Sports, then pan and orbit.</p>
+        </div>
+        <figure class="plate" data-rise>
+          <div class="crop crop--buildings"><img src="assets/scene-buildings.png" width="1440" height="900" loading="lazy" alt="Close 3D view of a campus building with a glass front, stone walls and a steel canopy, with trees in front and the stadium behind."></div>
+          <figcaption>Buildings: the Conservatory's glass canopy and stone entry.</figcaption>
         </figure>
-        <div>
-          <h2>The app, on the real feed</h2>
-          <p class="lede app-lede">This capture shows the honest state of things. The map fills the top of the screen, and the two cards below it say what's known.</p>
-          <ul class="app-points">
-            <li><strong>Feed connected</strong><span>The status service is answering.</span></li>
-            <li><strong>No confirmed timetable</strong><span>So the app shows no arrival estimate, and Locate estimate is disabled.</span></li>
-            <li><strong>BEI campus corner, 2 days ago</strong><span>A real camera alert from October 30, with the camera's own timestamp.</span></li>
-            <li><strong>No position estimate</strong><span>The map says so directly, so nobody reads the model as a live bus.</span></li>
-          </ul>
+        <div class="plates">
+          <figure data-rise>
+            <div class="crop crop--stadium"><img src="assets/scene-sports.png" width="1440" height="900" loading="lazy" alt="3D view of the stadium, with a football field inside a blue running track and stands along one side."></div>
+            <figcaption>Sports: the stadium and track.</figcaption>
+          </figure>
+          <figure data-rise>
+            <div class="crop crop--fehren"><img src="assets/scene-fehren.png" width="1440" height="900" loading="lazy" alt="3D view of the Fehren Lot end of the route, with parking rows beside a wide road."></div>
+            <figcaption>Fehren: the lot at the far end of the route.</figcaption>
+          </figure>
         </div>
       </div>
     </section>
 
-    <section class="section tinted" id="data">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Three kinds of information, never blended</h2>
-          <p class="muted">A sighting is a fact, an estimate is a guess, and the map is a model. The app labels each one so you can tell them apart.</p>
-        </div>
-        <div class="kinds">
-          <article class="kind observed">
-            <p class="eyebrow"><span class="dot teal"></span>Observed</p>
-            <h3>Camera sightings</h3>
-            <p>A camera at one checkpoint emails an alert when a bus enters its zone. BusTrackr shows the time the camera recorded, in Pacific time.</p>
-            <ul>
-              <li>Email delivery time is never shown as camera time</li>
-              <li>A sighting doesn't identify the vehicle or its direction</li>
-              <li>A sighting doesn't prove the bus has left</li>
-            </ul>
-          </article>
-          <article class="kind estimate">
-            <p class="eyebrow"><span class="dot amber"></span>Estimated</p>
-            <h3>Arrival range and amber marker</h3>
-            <p>When the server has a usable prediction, the app shows a range in minutes and an amber marker on the route.</p>
-            <ul>
-              <li>Ranges are labelled heuristic, not calibrated</li>
-              <li>Estimates need a confirmed timetable, which doesn't exist yet</li>
-              <li>Responses older than 45 seconds remove the estimate</li>
-            </ul>
-          </article>
-          <article class="kind">
-            <p class="eyebrow"><span class="dot"></span>Modeled</p>
-            <h3>The 3D scene</h3>
-            <p>USGS elevation data and OpenStreetMap footprints become a 3D campus and route. The native app bundles all of it, so the map loads with no network.</p>
-            <ul>
-              <li>No GPS tracking</li>
-              <li>No location permission</li>
-              <li>The packaged scene makes zero network requests</li>
-            </ul>
-          </article>
-        </div>
-      </div>
-    </section>
 
-    <section class="section" id="map">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>The whole route, in detail</h2>
-          <p class="muted">Five camera views cover the route and the places you'd look for. Terrain, roads, roofs, playing fields and trees are all geometry you can move around in.</p>
-        </div>
-        <div class="gallery">
-          <figure class="wide">
-            <div class="crop crop--desktop crop--route"><img src="assets/scene-route.png" width="1440" height="900" loading="lazy" alt="Overhead 3D view of the full corridor, with Fehren Lot on the left and Skyway Campus on the right, and shuttle labels along the road."></div>
-            <figcaption><strong>Full route.</strong> The Shuttle labels come from the web app's Scene demo, where bus positions are simulated.</figcaption>
-          </figure>
-          <figure>
-            <div class="crop crop--desktop crop--fehren"><img src="assets/scene-fehren.png" width="1440" height="900" loading="lazy" alt="3D view of the Fehren Lot end of the route, with parking rows beside a wide road."></div>
-            <figcaption><strong>Fehren.</strong> The lot at the far end of the route.</figcaption>
-          </figure>
-          <figure>
-            <div class="crop crop--desktop crop--buildings"><img src="assets/scene-buildings.png" width="1440" height="900" loading="lazy" alt="Close 3D view of a campus building with a glass front, stone walls and a steel canopy, with trees in front."></div>
-            <figcaption><strong>Buildings.</strong> The Conservatory's glass canopy and stone entry.</figcaption>
-          </figure>
-          <figure>
-            <div class="crop crop--desktop crop--sports"><img src="assets/scene-sports.png" width="1440" height="900" loading="lazy" alt="3D view of the stadium, a baseball diamond and a yellow demo bus on the road between them."></div>
-            <figcaption><strong>Sports.</strong> The yellow bus is a simulated Scene demo bus.</figcaption>
-          </figure>
-        </div>
-        <ul class="controls">
-          <li><strong>Campus, Full route, Fehren, Buildings, Sports</strong><span>One tap moves the camera.</span></li>
-          <li><strong>Pan or Orbit</strong><span>Choose what a one-finger drag does.</span></li>
-          <li><strong>Zoom</strong><span>Pinch, or use the plus and minus buttons.</span></li>
-          <li><strong>Locate estimate</strong><span>Centers the amber marker. Disabled when there's no estimate.</span></li>
-          <li><strong>Expand map</strong><span>Hides the cards until you choose Show details.</span></li>
-          <li><strong>Reload 3D map</strong><span>Appears if the renderer stops or takes over 60 seconds to load.</span></li>
-        </ul>
-        <p class="limits small muted">This is an independent reconstruction, not photogrammetry. Facades and small features are approximate, and route alignment, road widths and service access still need school confirmation.</p>
-      </div>
-    </section>
-
-    <section class="section tinted" id="states">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>No data means no estimate</h2>
-          <p class="muted">When the data falls short, BusTrackr removes the number and tells you why. The map stays available either way.</p>
-        </div>
-        <div class="compare">
-          <figure>
-            <div class="crop crop--native"><img src="assets/native-estimate.jpg" width="912" height="1944" loading="lazy" alt="Native app map with an amber marker labelled Estimated on the road, and a label reading Amber equals estimate, not GPS."></div>
-            <figcaption><strong>Estimate available.</strong> Amber marker, labelled as not GPS.</figcaption>
-          </figure>
-          <figure>
-            <div class="crop crop--native"><img src="assets/native-unavailable.jpg" width="912" height="1944" loading="lazy" alt="The same map view with no marker, and a label reading No position estimate."></div>
-            <figcaption><strong>Feed unavailable.</strong> Same view, no marker.</figcaption>
-          </figure>
-        </div>
-        <p class="limits small muted">Both captures come from the iOS Simulator on October 26, 2026, using the app's sample data. The app's controls have been restyled since then.</p>
-        <table class="state-table">
-          <thead><tr><th scope="col">What you see</th><th scope="col">What it means</th></tr></thead>
-          <tbody>
-            <tr><th scope="row">No confirmed timetable</th><td>An operator hasn't confirmed the timetable and checkpoint direction. This is the production state today.</td></tr>
-            <tr><th scope="row">No clear run match</th><td>More than one run could match, so no arrival or vehicle position is shown.</td></tr>
-            <tr><th scope="row">No active run confirmed</th><td>A missing estimate doesn't mean the shuttle has arrived or been cancelled.</td></tr>
-            <tr><th scope="row">Waiting for the next run</th><td>The app shows the next timetable time, labelled as a schedule and not an observed arrival.</td></tr>
-            <tr><th scope="row">Waiting for fresh data</th><td>The last update is too old to use, so estimates are hidden until the feed refreshes.</td></tr>
-            <tr><th scope="row">Feed unavailable</th><td>The status service can't be reached. The app keeps the last sighting and hides estimates.</td></tr>
-            <tr><th scope="row">Sample data banner</th><td>A yellow banner marks illustrative data. It stays visible for as long as the sample is on screen.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="section" id="availability">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Where things stand</h2>
-          <p class="muted">BusTrackr is a working proof of concept. Here's what you can use today and what isn't ready.</p>
-        </div>
-        <div class="channels">
-          <article class="channel">
-            <span class="tag live">Available</span>
-            <h3>3D web app</h3>
-            <p>Runs in a browser with no account. It has a camera mode and a Scene demo, where the buses and their arrival times are simulated and labelled that way.</p>
-            <a class="button" href="https://thatxliner.github.io/BusTrackr/">Open web app</a>
-          </article>
-          <article class="channel">
-            <span class="tag">Not released</span>
-            <h3>iOS and Android apps</h3>
-            <p>Built with Expo and tested in the iOS Simulator. Android runtime and physical phones haven't been verified, and nothing has been submitted to either store. Developers can run it from source.</p>
-            <a class="button secondary" href="https://github.com/ThatXliner/BusTrackr/blob/main/mobile/README.md">Setup guide</a>
-          </article>
-          <article class="channel">
-            <span class="tag live">Live, partial</span>
-            <h3>Camera feed</h3>
-            <p>Real camera alerts reach the server through a signed email webhook. As of November 1, 2026, the feed holds one, from October 30. Arrival estimates stay off until there's a confirmed timetable.</p>
-            <a class="button secondary" href="support.html">How to read the feed</a>
-          </article>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer class="site-footer">
     <div class="wrap">
+      <p class="footer-name">BusTrackr</p>
       <nav class="footer-links" aria-label="Footer">
         <a href="privacy.html">Privacy</a>
         <a href="support.html">Support</a>
-        <a href="https://github.com/ThatXliner/BusTrackr">GitHub</a>
+        <a href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
       </nav>
-      <p>© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+      <p class="credits">© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
     </div>
   </footer>
 
+  <script src="site.js"></script>
   <script>
     (async () => {
       const text = (id, value) => { document.getElementById(id).textContent = value; };
-      const when = stamp => new Date(stamp).toLocaleString('en-US', {
-        timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-      });
-      const estimates = {
-        estimated: 'Available in the app.',
-        scheduled: 'None yet. Waiting for the next scheduled run.',
-        unconfigured: 'Off. No confirmed timetable.',
-        ambiguous: 'None. More than one run could match.',
-        unknown: 'None. No active run confirmed.',
-        offline: 'Off. Feed unavailable.',
+      const pacific = {timeZone: 'America/Los_Angeles'};
+      const when = stamp => new Date(stamp).toLocaleString('en-US', {...pacific, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+      const clock = stamp => new Date(stamp).toLocaleTimeString('en-US', {...pacific, hour: 'numeric', minute: '2-digit', timeZoneName: 'short'});
+      const plural = (count, unit) => `${count} ${unit}${count === 1 ? '' : 's'} ago`;
+      const ago = stamp => {
+        const minutes = Math.floor((Date.now() - stamp) / 60000);
+        if (minutes < 1) return 'just now';
+        if (minutes < 60) return plural(minutes, 'minute');
+        const hours = Math.floor(minutes / 60);
+        return hours < 24 ? plural(hours, 'hour') : plural(Math.floor(hours / 24), 'day');
       };
+      const show = ({time, place, live, feed, estimate}) => {
+        text('sighting-time', time);
+        text('sighting-place', place);
+        text('hero-live', live);
+        text('feed-state', feed);
+        text('feed-estimate', estimate);
+      };
+      const estimates = {
+        estimated: 'Available',
+        scheduled: 'None yet: waiting for the next scheduled run',
+        unconfigured: 'Off: no confirmed timetable',
+        ambiguous: 'None: more than one run could match',
+        unknown: 'None: no active run confirmed',
+        offline: 'Off: feed unavailable',
+      };
+      const sighting = latest => {
+        if (!latest) return {time: 'None yet', place: 'No camera alert has arrived yet.', live: 'No camera sighting yet'};
+        if (typeof latest.checkpoint !== 'string') throw new Error('Unexpected status response');
+        const stamp = Date.parse(latest.eventAt);
+        if (Number.isNaN(stamp)) return {time: 'Time unavailable', place: `${latest.checkpoint}. The camera sent no time.`, live: `Last sighting: ${latest.checkpoint}, time unavailable`};
+        return {time: when(stamp), place: `${latest.checkpoint}, ${ago(stamp)}`, live: `Last sighting: ${latest.checkpoint}, ${ago(stamp)}`};
+      };
+
+      show({time: 'Checking…', place: 'Asking the status feed.', live: 'Checking live status…', feed: 'Checking…', estimate: 'Checking…'});
+      const abort = new AbortController();
+      const timeout = setTimeout(() => abort.abort(), 10000);
       try {
-        const response = await fetch('/api/shuttle', {cache: 'no-store', headers: {accept: 'application/json'}});
+        const response = await fetch('/api/shuttle', {cache: 'no-store', headers: {accept: 'application/json'}, signal: abort.signal});
         if (!response.ok) throw new Error('Status request failed');
         const feed = await response.json();
-        if (typeof feed.eventCount !== 'number') throw new Error('Unexpected status response');
+        if (!['connected', 'connecting', 'disconnected', 'sample'].includes(feed.status) || typeof feed.eventCount !== 'number') throw new Error('Unexpected status response');
+        if (feed.status === 'sample') {
+          show({time: 'Sample data', place: 'Illustrative only, not a real sighting.', live: 'Showing sample data, not a real sighting', feed: 'Sample data', estimate: 'Off: sample data'});
+          return;
+        }
         const checked = Date.parse(feed.lastCheckedAt);
-        const fresh = Date.now() - checked <= 120000;
+        const age = Date.now() - checked;
         const connected = feed.status === 'connected';
-        text('feed-state', feed.status === 'sample' ? 'Sample data' : !connected ? 'Unavailable' : fresh ? 'Connected' : 'Out of date');
-        document.getElementById('feed-dot').classList.toggle('teal', connected && fresh);
-        text('feed-observed', !feed.latest ? 'None yet' : feed.latest.eventAt ? when(feed.latest.eventAt) : 'Camera time unavailable');
-        text('feed-count', String(feed.eventCount));
-        text('feed-estimate', connected && fresh ? estimates[feed.prediction?.status] ?? 'Unavailable' : 'Off. Feed not current.');
-        text('feed-note', 'Live from the status feed' + (Number.isNaN(checked) ? '.' : `, checked ${when(feed.lastCheckedAt)}.`));
+        const current = connected && age >= -30000 && age <= 120000;
+        show({
+          ...sighting(feed.latest),
+          feed: current ? `Connected, checked ${clock(checked)}` : connected ? 'Out of date' : 'Unavailable',
+          estimate: current ? estimates[feed.prediction?.status] ?? 'Unavailable' : 'Off: feed not current',
+        });
       } catch {
-        text('feed-state', 'Unavailable');
-        text('feed-observed', 'Unavailable');
-        text('feed-count', '—');
-        text('feed-estimate', 'Off. Feed not current.');
-        document.getElementById('feed-dot').classList.remove('teal');
-        text('feed-note', 'The live feed could not be reached just now. Try reloading the page.');
+        show({time: 'Unavailable', place: "The status feed can't be reached right now.", live: 'Live status unavailable', feed: 'Unavailable', estimate: 'Off: feed unavailable'});
+      } finally {
+        clearTimeout(timeout);
       }
     })();
   </script>
