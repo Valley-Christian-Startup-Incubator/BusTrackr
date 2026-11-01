@@ -74,7 +74,7 @@ Set each camera's alert recipient to one of the comma-separated addresses in `RE
 
 Open the health URL. Expected result: `status: "connected"`, `storage: "local"`, and `missing: []`. Before configuration, health reports `needs_configuration` and the webhook returns HTTP 503. A configured but unsigned POST is rejected with HTTP 400. Opening the POST webhook in a browser is not a delivery test.
 
-Trigger a genuine camera alert. Confirm it appears in Resend's Receiving tab and its `email.received` webhook delivery returns HTTP 200. Then open the app status URL: `latest` must contain the actual camera timestamp and `eventCount` must increase. HTTP 200 alone does not prove an alert was stored: unrelated or filtered messages are acknowledged but ignored. The message must match the sender and recipient, have DKIM or DMARC `pass`, and contain the configured marker with a valid timestamp such as `[2026-Oct-16 02:06:43 PM (PDT)] BEI Bus has arrived.` using the actual event time.
+Trigger a genuine camera alert. Confirm it appears in Resend's Receiving tab and its `email.received` webhook delivery returns HTTP 200. Then open the app status URL: `latest` must contain the actual camera timestamp and `eventCount` must increase. HTTP 200 alone does not prove an alert was stored: unrelated or filtered messages are acknowledged but ignored. The message must match the sender and recipient, have DKIM/DMARC `pass` or a cryptographically verified Google ARC chain with aligned original DMARC `pass`, and contain the configured marker with a valid timestamp such as `[2026-Oct-16 02:06:43 PM (PDT)] BEI Bus has arrived.` using the actual event time.
 
 Replay failed deliveries from Resend after correcting configuration. There is no automatic historical backfill. Check health for missing variables; for `disconnected`, check API permissions, webhook ID/URL/secret/subscription, and unresolved delivery failures. HTTP 503 after configuration indicates a retryable processing/storage failure.
 
@@ -105,7 +105,7 @@ To update backend code from the repository root:
 
 ```sh
 npm run test:alerts
-scp server/index.mjs server/resend.mjs server/alerts.mjs server/estimator.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
+scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
 scp deploy/package.json deploy/package-lock.json valley-big-mac:apps/bustrackr/
 ssh valley-big-mac 'cd ~/apps/bustrackr && PATH="$HOME/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin:$PATH" npm ci --omit=dev --ignore-scripts && launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
 ```
@@ -125,9 +125,9 @@ The check verifies webhook configuration, not camera delivery. The sample mode a
 
 ## Processing behavior
 
-Incoming requests use raw-body Svix signature verification with timestamp tolerance. Only events for `RESEND_INBOUND_ADDRESS` trigger an email-content fetch. The fetched email must also match that recipient and have Resend-computed DKIM or DMARC `pass`; missing or failed authentication is ignored. The existing parser then requires the configured sender and marker and a valid Pacific camera timestamp. No emails are sent, moved, or deleted.
+Incoming requests use raw-body Svix signature verification with timestamp tolerance. Only events for `RESEND_INBOUND_ADDRESS` trigger an email-content fetch. The fetched email must match that recipient and have Resend-computed DKIM or DMARC `pass`. For the configured sender forwarded by Gmail, the receiver may instead fetch the bounded raw message and cryptographically verify the complete Google ARC chain with an aligned original DMARC pass. Unverified forwarding headers are never trusted. The existing parser then requires the configured sender and marker and a valid Pacific camera timestamp. No emails are sent, moved, or deleted.
 
-The receiver acknowledges duplicates and irrelevant mail with HTTP 200. API or persistence failures return 503 so Resend retries. Writes are acknowledged only after persistence; the worker serializes writes. Retry IDs survive restarts. Bodies are fetched and parsed transiently. Attachments are never downloaded or stored. Only parsed event metadata, receipt IDs, and pending delivery IDs are persisted. Responses are limited to 2 MB and webhook bodies to 64 KB.
+The receiver acknowledges duplicates and irrelevant mail with HTTP 200. API or persistence failures return 503 so Resend retries. Writes are acknowledged only after persistence; the worker serializes writes. Retry IDs survive restarts. Bodies and, when required for ARC verification, raw messages are fetched and parsed transiently. Attachments are never fetched separately or retained; a raw message used for ARC verification can include encoded MIME parts within the same 2 MB limit. Only parsed event metadata, receipt IDs, and pending delivery IDs are persisted. Responses are limited to 2 MB and webhook bodies to 64 KB.
 
 `RESEND_HEALTH_SECONDS` defaults to 30 and only checks webhook configuration. It does not poll emails. The existing `lastCheckedAt` API field now reports that successful configuration check for client compatibility. A quiet inbox remains healthy. Disabled/mismatched webhook settings, API failures, stale health checks, or unresolved ingestion failures suppress position estimates. Configuration health alone cannot detect a camera that stopped sending or a broken public reverse proxy.
 
@@ -169,3 +169,7 @@ If self-hosting the standalone worker instead of using the deployed Mac backend,
 See [arrival estimation research and design decisions](arrival-estimation-research.md) for the evidence, assumptions, ML upgrade path and traffic-provider restrictions.
 
 Resend references: [signature verification](https://resend.com/docs/webhooks/verify-webhooks-requests) and [received-email retrieval](https://resend.com/docs/api-reference/emails/retrieve-received-email).
+
+## Verified camera delivery
+
+On November 1, the October 30 camera alert was recovered after fixing optional terminal punctuation and verifying Gmail forwarding through ARC. Its camera timestamp is `2026-10-30T21:35:43.000Z` (2:35:43 PM PDT), received at `2026-10-30T21:35:52.334Z`. Only the already-ignored receipt for that email was replayed; other history was preserved. Production state was backed up before replay. No synthetic sighting was inserted.

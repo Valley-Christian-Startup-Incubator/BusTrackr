@@ -25,6 +25,7 @@
     "@turf/helpers": "^7.4.0",
     "@vercel/blob": "^2.8.2",
     "lucide-react": "^0.468.0",
+    "mailauth": "^8.0.4",
     "mailparser": "^3.9.39",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -47,5 +48,8 @@
   },
   "engines": {
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  },
+  "overrides": {
+    "joi": "^18.3.1"
   }
 }

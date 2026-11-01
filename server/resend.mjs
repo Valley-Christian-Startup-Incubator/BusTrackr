@@ -1,5 +1,6 @@
 import {Webhook} from 'svix';
 import {z} from 'zod';
+import {verifyForwardedRaw} from './forwarded-auth.mjs';
 import {parseAlert, recordAlert} from './alerts.mjs';
 
 const address = z.string().min(1).max(320).refine(value => !/[\r\n]/.test(value));
@@ -8,6 +9,7 @@ const emailSchema = z.object({
   created_at: z.string().refine(value => Number.isFinite(Date.parse(value))),
   message_id: z.string().max(1000).optional(), text: z.string().nullable(), html: z.string().nullable(),
   headers: z.record(z.string(), z.string()).optional(),
+  raw: z.object({download_url:z.string().url()}).optional(),
   authentication: z.object({dkim: z.string(), dmarc: z.string()}).nullable().optional(),
 });
 const eventSchema = z.object({type: z.literal('email.received'), data: z.object({email_id: z.string().uuid(), to: z.array(address)})});
@@ -37,10 +39,19 @@ export async function checkReceiver(api, config) {
     throw new Error('Resend webhook configuration does not match this receiver');
   }
 }
-export async function receivedAlert(input, config) {
+export async function receivedAlert(input, config, fetchImpl = fetch) {
   const mail = emailSchema.parse(input);
   if (!forRecipient(mail.to, config.recipient)) return null;
-  if (mail.authentication?.dkim !== 'pass' && mail.authentication?.dmarc !== 'pass') return null;
+  if (mail.authentication?.dkim !== 'pass' && mail.authentication?.dmarc !== 'pass') {
+    if (mail.from.toLowerCase() !== config.sender.toLowerCase() || !mail.raw) return null;
+    const url = new URL(mail.raw.download_url);
+    if (url.protocol !== 'https:' || url.hostname !== 'cdn.resend.app' || url.port || url.username || url.password) return null;
+    const response = await fetchImpl(url,{signal:AbortSignal.timeout(15_000),redirect:'error'});
+    if (!response.ok) throw new Error('Raw email retrieval failed');
+    const raw = await boundedText(response.body,2_000_000);
+    if (!await verifyForwardedRaw(raw,config.sender)) return null;
+    return parseAlert(raw,config,new Date(mail.created_at));
+  }
   const header = value => value?.replace(/[\r\n]/g, ' ') || '';
   const text = mail.text || mail.html || '';
   const source = [

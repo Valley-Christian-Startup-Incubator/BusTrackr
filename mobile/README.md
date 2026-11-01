@@ -15,7 +15,7 @@ npm start
 
 Scan the QR code with Expo Go on a phone. Keep the phone and development computer on the same network. Press `i` for an installed iOS simulator or `a` for a running Android emulator.
 
-With no saved connection or environment URL, the app opens in sample mode. The yellow banner stays visible. Scroll to **Explore sample states** to try both directions, no confirmed timetable, ambiguous runs, stale data, unavailable service, loading, no observations, and a future scheduled run. Sample sightings and the timetable are illustrative and reset as the sample refreshes.
+With no saved connection or environment URL, the app connects to the production feed. To try sample mode, open Connection settings and select Use sample data. The yellow banner stays visible. Scroll to **Explore sample states** to try both directions, no confirmed timetable, ambiguous runs, stale data, unavailable service, loading, no observations, and a future scheduled run. Sample sightings and the timetable are illustrative and reset as the sample refreshes.
 
 On hosts where Metro binds IPv6 localhost but Expo Go requests IPv4, use:
 

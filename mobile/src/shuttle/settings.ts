@@ -11,7 +11,7 @@ export async function loadSource(): Promise<Source> {
     const source = sourceSchema.parse(raw);
     return source.kind === 'api' ? {...source, endpoint: parseEndpoint(source.endpoint, __DEV__)} : source;
   }
-  const endpoint = process.env.EXPO_PUBLIC_SHUTTLE_API_URL;
+  const endpoint = process.env.EXPO_PUBLIC_SHUTTLE_API_URL || 'https://bustrackr.valleychristianai.com/api/shuttle';
   return endpoint ? {kind: 'api', endpoint: parseEndpoint(endpoint, __DEV__)} : defaultSource;
 }
 export function saveSource(source: Source) {

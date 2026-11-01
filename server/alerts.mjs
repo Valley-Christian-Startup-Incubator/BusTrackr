@@ -18,7 +18,7 @@ export async function saveState(path, state) {
 }
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 export function cameraTimestamp(text) {
-  const match = text.match(/\[(\d{4})-([A-Z][a-z]{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) (AM|PM) \((PDT|PST)\)\]\s*BEI Bus has arrived\./);
+  const match = text.match(/\[(\d{4})-([A-Z][a-z]{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) (AM|PM) \((PDT|PST)\)\]\s*BEI Bus has arrived\b\.?/);
   if (!match) return null;
   const [, year, month, day, hour, minute, second, period, zone] = match;
   const monthIndex = months.indexOf(month);
@@ -36,7 +36,7 @@ export async function parseAlert(source, config, receivedAt = new Date()) {
   if (senders.length !== 1 || senders[0].address?.toLowerCase() !== config.sender.toLowerCase()) return null;
   if (config.subject && !mail.subject?.toLowerCase().includes(config.subject.toLowerCase())) return null;
   const text = mail.text || '';
-  if (!text.toLowerCase().includes(config.marker.toLowerCase())) return null;
+  if (!text.toLowerCase().includes(config.marker.replace(/\.$/, '').toLowerCase())) return null;
   const eventAt = cameraTimestamp(text);
   if (!eventAt || Date.parse(eventAt) > receivedAt.getTime() + 300_000) return null;
   return {

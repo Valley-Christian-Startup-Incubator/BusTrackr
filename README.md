@@ -4,7 +4,7 @@ BusTrackr includes a native Expo app in `mobile/`, a React web prototype with a 
 
 ## Native iOS and Android app
 
-See [native setup and build instructions](mobile/README.md). The app works without credentials in clearly labelled sample mode. It combines native controls and status cards with the detailed 3D campus and route, bundled offline in a local WebView.
+See [native setup and build instructions](mobile/README.md). The app connects to the public production feed without credentials; sample mode is available in Connection settings. It combines native controls and status cards with the detailed 3D campus and route, bundled offline in a local WebView.
 
 ## Run
 
