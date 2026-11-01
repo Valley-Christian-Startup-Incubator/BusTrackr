@@ -187,3 +187,7 @@ ssh valley-big-mac 'launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
 ```
 
 Keep credentials, history and logs outside `website/`. Verify the home page, privacy/support pages and `/api/health` after deploying.
+
+### SSH connection reliability
+
+The local `valley-big-mac` SSH entry uses `IPQoS none`, a 30-second connection timeout, and automatic connection reuse (`ControlMaster auto`, `ControlPersist 600`, `ControlPath ~/.ssh/cm-%C`). These settings restored responsive access during the November 1 deployment. Authentication and host-key verification remain enabled. The previous SSH configuration was backed up locally before editing. If a tunnel is slow, reuse an authenticated connection rather than opening many parallel SSH handshakes.

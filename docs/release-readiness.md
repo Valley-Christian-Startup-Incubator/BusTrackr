@@ -20,7 +20,7 @@ Audit: November 1, 2026. This is a working prototype with a live camera observat
 
 ## Site
 
-The product website is implemented for the backend's public origin, with `/api/*` reserved for the service. Publication on November 1 was blocked by the host's Cloudflare SSH route timing out before the SSH banner; the API remained healthy. It links to the existing 3D web prototype and clearly states native store availability. See `website/` for source. Deploy site files together with `server/website.mjs` and restart the worker; never copy server environment files into the website directory.
+The product website is live at https://bustrackr.valleychristianai.com/, with `/api/*` reserved for the service. Published November 1 after restoring SSH access using `IPQoS none` and persistent connection reuse. It links to the existing 3D web prototype and clearly states native store availability. See `website/` for source. Deploy site files together with `server/website.mjs` and restart the worker; never copy server environment files into the website directory.
 
 ## Release checks
 
