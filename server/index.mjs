@@ -1,3 +1,4 @@
+import {serveWebsite} from './website.mjs';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -66,6 +67,7 @@ const server = createServer(async (req,res)=>{
     } catch {res.writeHead(413); res.end(JSON.stringify({error:'Invalid or oversized request'}));}
     return;
   }
+  if (!req.url.startsWith('/api/') && await serveWebsite(req,res,new URL('../website/',import.meta.url))) return;
   if (req.method!=='GET' || !['/api/detections/latest','/api/shuttle'].includes(req.url)) {res.writeHead(404);res.end(JSON.stringify({error:'Not found'}));return;}
   res.end(JSON.stringify(payload()));
 });

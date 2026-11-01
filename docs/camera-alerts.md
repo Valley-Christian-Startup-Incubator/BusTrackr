@@ -173,3 +173,17 @@ Resend references: [signature verification](https://resend.com/docs/webhooks/ver
 ## Verified camera delivery
 
 On November 1, the October 30 camera alert was recovered after fixing optional terminal punctuation and verifying Gmail forwarding through ARC. Its camera timestamp is `2026-10-30T21:35:43.000Z` (2:35:43 PM PDT), received at `2026-10-30T21:35:52.334Z`. Only the already-ignored receipt for that email was replayed; other history was preserved. Production state was backed up before replay. No synthetic sighting was inserted.
+
+## Product website
+
+The same worker serves the product website at `https://bustrackr.valleychristianai.com/`. `/api/*` remains reserved for backend requests. Website source is in `website/`; the static handler only serves public web file types and rejects hidden files and symlinks escaping that directory.
+
+Deploy website changes from the repository root:
+
+```sh
+scp -r website valley-big-mac:apps/bustrackr/
+scp server/index.mjs server/website.mjs valley-big-mac:apps/bustrackr/server/
+ssh valley-big-mac 'launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
+```
+
+Keep credentials, history and logs outside `website/`. Verify the home page, privacy/support pages and `/api/health` after deploying.

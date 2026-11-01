@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Circle, Path, Rect} from 'react-native-svg';
@@ -10,19 +10,28 @@ import {colors, styles as s} from '../styles';
 import {SceneMap} from '../map/SceneMap';
 
 const messages = {
-  loading: {title: 'Checking the feed', body: 'Looking for the latest camera observation and a usable estimate.'},
-  unavailable: {title: 'Feed unavailable', body: 'The status service or mailbox is unavailable. Arrival and position estimates are hidden.'},
-  stale: {title: 'Waiting for fresh data', body: 'The last update is too old to use. Arrival and position estimates are hidden until the feed refreshes.'},
-  unconfigured: {title: 'No confirmed timetable', body: 'An operator needs to confirm the timetable and checkpoint direction before we can estimate arrivals.'},
-  ambiguous: {title: 'No clear run match', body: 'More than one run or arrival could match. We cannot assign a vehicle position or arrival time.'},
-  unknown: {title: 'No active run confirmed', body: 'An arrival is not confirmed. A missing estimate does not mean the shuttle has arrived or been cancelled.'},
-  scheduled: {title: 'Waiting for the next run', body: 'The timetable lists a later checkpoint crossing. This is a schedule, not an observed arrival.'},
+  loading: {title: 'Checking the feed', body: 'Looking for the latest camera observation.'},
+  unavailable: {title: 'Feed unavailable', body: 'Arrival and position estimates are hidden until the status service responds.'},
+  stale: {title: 'Waiting for fresh data', body: 'The last update is too old to use, so estimates are hidden.'},
+  unconfigured: {title: 'No confirmed timetable', body: 'Estimates stay off until an operator confirms the timetable and checkpoint direction.'},
+  ambiguous: {title: 'No clear run match', body: 'More than one run could match, so no arrival or vehicle position is shown.'},
+  unknown: {title: 'No active run confirmed', body: 'A missing estimate does not mean the shuttle has arrived or been cancelled.'},
+  scheduled: {title: 'Waiting for the next run', body: 'This is a timetable time, not an observed arrival.'},
 };
-function Icon({kind, color = colors.ink}: {kind: 'bus' | 'camera' | 'settings'; color?: string}) {
-  return <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} accessible={false}>
+function ageLabel(minutes: number) {
+  if (minutes < 0) return 'Camera clock is ahead';
+  if (minutes === 0) return 'Less than a minute ago';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ago`;
+  const days = Math.floor(minutes / 1440);
+  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+}
+function Icon({kind, color = colors.ink, size = 24}: {kind: 'bus' | 'camera' | 'settings' | 'refresh'; color?: string; size?: number}) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" accessible={false}>
     {kind === 'bus' ? <><Rect x={5} y={3} width={14} height={16} rx={3}/><Path d="M5 11h14M8 19v2m8-2v2M8 15h1m6 0h1M9 6h6"/></> :
       kind === 'camera' ? <><Rect x={3} y={7} width={18} height={13} rx={3}/><Circle cx={12} cy={13} r={3}/><Path d="m7 7 2-4h6l2 4"/></> :
-        <><Path d="M4 6h16M4 12h16M4 18h16"/><Circle cx={9} cy={6} r={2} fill={colors.paper}/><Circle cx={16} cy={12} r={2} fill={colors.paper}/><Circle cx={8} cy={18} r={2} fill={colors.paper}/></>}
+        kind === 'refresh' ? <Path d="M20 12a8 8 0 1 1-2.6-5.9M20 3v4h-4"/> :
+          <><Path d="M4 7h16M4 17h16"/><Circle cx={9} cy={7} r={2.4} fill={colors.card}/><Circle cx={15} cy={17} r={2.4} fill={colors.card}/></>}
   </Svg>;
 }
 function Button({label, onPress, secondary = false}: {label: string; onPress: () => void; secondary?: boolean}) {
@@ -30,18 +39,20 @@ function Button({label, onPress, secondary = false}: {label: string; onPress: ()
     <Text style={[s.buttonText, secondary && s.secondaryButtonText]}>{label}</Text>
   </Pressable>;
 }
+function Fact({label, value}: {label: string; value: string}) {
+  return <View style={s.fact}><Text style={s.factLabel}>{label}</Text><Text style={s.factValue}>{value}</Text></View>;
+}
 function ShuttleScreen({source, changeSource, settingsError}: {source: Source; changeSource: (source: Source) => void; settingsError: string}) {
   const {view, feed, now, refresh} = useShuttle(source);
   const [settings, setSettings] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [endpoint, setEndpoint] = useState(source.kind === 'api' ? source.endpoint : '');
   const [inputError, setInputError] = useState('');
+  const toggleMap = useCallback(() => setMapExpanded(value => !value), []);
   const sample = source.kind === 'sample' || feed?.status === 'sample';
   const observation = feed?.latest;
-  const eventAge = observation?.eventAt ? Math.floor((now - Date.parse(observation.eventAt)) / 60_000) : null;
-  const eventAgeLabel = eventAge === null ? 'Camera time unavailable' : eventAge < 0 ? 'Camera clock is ahead' : eventAge === 0 ? 'Less than a minute ago' : `${eventAge} min ago`;
-  const estimated = view.kind === 'estimated';
-  const status = view.kind === 'loading' ? 'Checking feed' : view.kind === 'unavailable' ? 'Feed unavailable' : view.kind === 'stale' ? 'Feed is stale' : sample ? 'Illustrative data' : 'Mailbox connected';
+  const status = view.kind === 'loading' ? 'Checking feed' : view.kind === 'unavailable' ? 'Feed unavailable' : view.kind === 'stale' ? 'Feed is stale' : sample ? 'Illustrative data' : 'Feed connected';
+  const statusColor = view.kind === 'loading' ? colors.muted : view.kind === 'unavailable' || view.kind === 'stale' ? colors.error : sample ? colors.amber : colors.teal;
   function connect() {
     try {
       const next = parseEndpoint(endpoint, __DEV__);
@@ -51,49 +62,56 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
   }
   return <SafeAreaView style={s.page} edges={['top', 'left', 'right', 'bottom']}>
     <View style={s.header}>
-      <View style={s.brand}><View style={s.brandIcon}><Icon kind="bus" color={colors.card}/></View><View><Text style={s.wordmark}>BusTrackr</Text><Text style={s.caption}>Fehren ↔ Skyway</Text></View></View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Connection settings" onPress={() => setSettings(true)} style={s.iconButton}><Icon kind="settings"/></Pressable>
+      <View style={s.brand}><View style={s.brandIcon}><Icon kind="bus" color={colors.card} size={22}/></View><View style={s.brandText}><Text style={s.wordmark}>BusTrackr</Text><Text style={s.caption}>Fehren ↔ Skyway</Text></View></View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Connection settings" onPress={() => setSettings(true)} style={({pressed}) => [s.iconButton, pressed && s.pressed]}><Icon kind="settings" size={22}/></Pressable>
     </View>
-    {sample && <View style={s.sampleBanner}><Text style={s.sampleBannerText}>SAMPLE DATA · NOT A REAL SHUTTLE</Text><Pressable accessibilityRole="button" onPress={() => setSettings(true)} style={s.bannerButton}><Text style={s.sampleLink}>Connect feed ↗</Text></Pressable></View>}
-    <SceneMap prediction={view.kind === 'estimated' ? view.prediction : null} checkedAt={feed?.lastCheckedAt ?? null} expanded={mapExpanded} onExpand={() => setMapExpanded(value => !value)}/>
+    {sample && <View style={s.sampleBanner}><Text style={s.sampleBannerText}>SAMPLE DATA · NOT A REAL SHUTTLE</Text><Pressable accessibilityRole="button" onPress={() => setSettings(true)} style={s.bannerButton}><Text style={s.sampleLink}>Connect feed</Text></Pressable></View>}
+    <SceneMap prediction={view.kind === 'estimated' ? view.prediction : null} checkedAt={feed?.lastCheckedAt ?? null} expanded={mapExpanded} onExpand={toggleMap}/>
     <ScrollView style={mapExpanded ? {display: 'none'} : s.flex} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.teal}/> }>
-      <View style={s.row}><View style={s.statusRow}><View style={[s.statusDot, {backgroundColor: estimated ? colors.teal : colors.amber}]}/><Text accessibilityLiveRegion="polite" style={s.statusText}>{status}</Text></View><Pressable accessibilityRole="button" onPress={refresh} style={s.refreshButton}><Text style={s.refreshText}>Refresh ↻</Text></Pressable></View>
+      <View style={s.row}>
+        <View style={s.statusRow}><View style={[s.statusDot, {backgroundColor: statusColor}]}/><Text accessibilityLiveRegion="polite" style={s.statusText}>{status}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Refresh feed" onPress={refresh} style={({pressed}) => [s.refreshButton, pressed && s.pressed]}><Icon kind="refresh" color={colors.teal} size={16}/><Text style={s.refreshText}>Refresh</Text></Pressable>
+      </View>
       {!!settingsError && <Text accessibilityRole="alert" style={s.error}>{settingsError}</Text>}
-      <View style={[s.card, s.arrivalCard]}>
-        <View style={s.row}><Text style={[s.eyebrow, s.amber]}>ARRIVAL ESTIMATE</Text>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
+      <View style={s.card}>
+        <View style={s.row}><View style={s.statusRow}><View style={s.estimateDot}/><Text style={[s.eyebrow, s.amber]}>ARRIVAL ESTIMATE</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
         {view.kind === 'estimated' ? <>
-          <Text style={s.destination}>To {view.prediction.direction === 'inbound' ? 'campus' : 'Fehren'}</Text>
-          <Text accessibilityLabel={`Estimated arrival in ${view.rangeMinutes[0]} to ${view.rangeMinutes[1]} minutes`} style={s.range} maxFontSizeMultiplier={1.5}>{view.rangeMinutes[0]}–{view.rangeMinutes[1]} <Text style={s.minutes}>min</Text></Text>
-          <Text style={s.body}>Approximate arrival range</Text>
-          <View style={s.estimateRule}/>
-          <Text style={s.body}>{view.prediction.anchor === 'camera' ? 'Based on a camera sighting and the timetable.' : 'Based on the timetable and recent delays.'}</Text>
-          <Text style={s.caption}>Heuristic range, not calibrated. {view.prediction.historyCount} historical runs used.</Text>
-          <Text style={s.caption}>Calculated {pacificTime(view.prediction.generatedAt)}</Text>
+          <View style={s.estimateHead}>
+            <Text accessibilityLabel={`Estimated arrival in ${view.rangeMinutes[0]} to ${view.rangeMinutes[1]} minutes`} style={s.range} maxFontSizeMultiplier={1.5}>{view.rangeMinutes[0]}–{view.rangeMinutes[1]} <Text style={s.minutes}>min</Text></Text>
+            <View style={s.destinationBlock}><Text style={s.destination}>To {view.prediction.direction === 'inbound' ? 'campus' : 'Fehren'}</Text><Text style={s.caption}>Approximate range</Text></View>
+          </View>
+          <View style={s.facts}>
+            <Fact label="Based on" value={view.prediction.anchor === 'camera' ? 'Camera sighting and timetable' : 'Timetable and recent delays'}/>
+            <Fact label="Accuracy" value={`Heuristic, not calibrated · ${view.prediction.historyCount} historical ${view.prediction.historyCount === 1 ? 'run' : 'runs'}`}/>
+            <Fact label="Calculated" value={pacificTime(view.prediction.generatedAt)}/>
+          </View>
         </> : <>
-          {view.kind === 'loading' && <ActivityIndicator color={colors.amber} style={s.loading}/>}
-          <Text style={s.stateTitle}>{messages[view.kind].title}</Text>
+          <View style={s.stateHead}>
+            {view.kind === 'loading' && <ActivityIndicator color={colors.teal}/>}
+            <Text accessibilityRole="header" style={s.stateTitle}>{messages[view.kind].title}</Text>
+          </View>
           <Text style={s.body}>{messages[view.kind].body}</Text>
-          {view.kind === 'scheduled' && view.nextCrossingAt && <Text style={s.scheduled}>Scheduled checkpoint crossing{ '\n'}{pacificTime(view.nextCrossingAt)}</Text>}
-          {(view.kind === 'unavailable' || view.kind === 'stale') && <Button label="Try again" onPress={refresh} secondary/>}
+          {view.kind === 'scheduled' && view.nextCrossingAt && <View style={s.facts}><Fact label="Scheduled" value={`Checkpoint crossing ${pacificTime(view.nextCrossingAt)}`}/></View>}
+          {(view.kind === 'unavailable' || view.kind === 'stale') && <View style={s.startAligned}><Button label="Try again" onPress={refresh} secondary/></View>}
         </>}
       </View>
       <View style={[s.card, s.observedCard]}>
-        <View style={s.row}><View style={s.statusRow}><Icon kind="camera" color={colors.teal}/><Text style={[s.eyebrow, s.teal]}>LAST OBSERVATION</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
-        <Text style={s.observedTitle}>{observation ? observation.checkpoint : feed ? 'No camera observations yet' : 'No observation available'}</Text>
-        {observation && <>
-          <Text style={s.observationTime}>{observation.eventAt ? pacificTime(observation.eventAt) : 'Camera time unavailable'}</Text>
-          <Text style={[s.body, s.teal]}>{eventAgeLabel}</Text>
-        </>}
-        <Text style={s.caption}>{observation ? 'A vehicle was detected. This does not identify the shuttle, its direction, or whether it has left.' : 'A camera sighting will appear here when one is received. No arrival is implied by an empty feed.'}</Text>
+        <View style={s.row}><View style={s.statusRow}><Icon kind="camera" color={colors.teal} size={16}/><Text style={[s.eyebrow, s.teal]}>LAST OBSERVATION</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
+        <View style={s.observedHead}>
+          <Text style={s.observedTitle}>{observation ? observation.checkpoint : feed ? 'No camera observations yet' : 'No observation available'}</Text>
+          {observation?.eventAt && <Text style={s.observationAge}>{ageLabel(Math.floor((now - Date.parse(observation.eventAt)) / 60_000))}</Text>}
+        </View>
+        {observation && <Text style={s.observationTime}>{observation.eventAt ? pacificTime(observation.eventAt) : 'Camera time unavailable'}</Text>}
+        <Text style={s.caption}>{observation ? 'A vehicle was detected. This does not identify the shuttle, its direction, or whether it has left.' : 'Sightings appear here when received. An empty feed does not imply an arrival.'}</Text>
         {observation && !observation.eventAt && <Text style={s.caption}>Email received {pacificTime(observation.receivedAt)}. Delivery time is not camera time.</Text>}
       </View>
       <View style={s.footer}>
-        <Text style={s.caption}>{feed?.lastCheckedAt ? `Mailbox checked ${pacificTime(feed.lastCheckedAt)}` : 'No successful mailbox check yet'}</Text>
-        <Text style={s.caption}>{feed ? `${feed.eventCount} camera emails saved` : 'Observation history unavailable'} · Times shown in Pacific time</Text>
+        <Text style={s.caption}>{feed?.lastCheckedAt ? `Feed checked ${pacificTime(feed.lastCheckedAt)}` : 'No successful feed check yet'}</Text>
+        <Text style={s.caption}>{feed ? `${feed.eventCount} camera ${feed.eventCount === 1 ? 'email' : 'emails'} saved` : 'Observation history unavailable'} · Times shown in Pacific time</Text>
       </View>
       {source.kind === 'sample' && <View style={s.card}>
         <Text style={s.eyebrow}>EXPLORE SAMPLE STATES</Text>
-        <Text style={s.caption}>Illustrative scenarios. No mailbox connection.</Text>
+        <Text style={s.caption}>Illustrative scenarios. Not connected to a feed.</Text>
         <View style={s.choices}>{scenarios.map(scenario => <Pressable key={scenario.id} accessibilityRole="button" accessibilityState={{selected: source.scenario === scenario.id}} onPress={() => changeSource({kind: 'sample', scenario: scenario.id})} style={[s.choice, source.scenario === scenario.id && s.choiceSelected]}><Text style={[s.choiceText, source.scenario === scenario.id && s.choiceTextSelected]}>{scenario.label}</Text></Pressable>)}</View>
       </View>}
     </ScrollView>
@@ -101,9 +119,9 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
       <SafeAreaView style={s.page}>
         <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={s.header}><Text style={s.wordmark}>Connection</Text><Button label="Done" onPress={() => setSettings(false)} secondary/></View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
-            <Text style={s.sheetTitle}>Your shuttle feed.</Text>
-            <Text style={s.body}>Connect the status service supplied by your shuttle operator. No mailbox login belongs in this app.</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.sheetContent}>
+            <Text accessibilityRole="header" style={s.sheetTitle}>Your shuttle feed</Text>
+            <Text style={s.body}>Connect the status service supplied by your shuttle operator. This app never asks for an email or camera login.</Text>
             <Text style={s.inputLabel}>Status API URL</Text>
             <TextInput accessibilityLabel="Status API URL" value={endpoint} onChangeText={setEndpoint} placeholder="https://feed.example.org/api/shuttle" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url" textContentType="URL" returnKeyType="go" onSubmitEditing={connect} style={s.input}/>
             <Text style={s.caption}>Use HTTPS. On a physical phone, localhost means the phone itself.</Text>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support · BusTrackr</title>
+  <meta name="description" content="Answers to common BusTrackr questions, and how to report a problem on GitHub.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="index.html"><img src="assets/icon.svg" alt="" width="30" height="30">BusTrackr</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="support.html" aria-current="page">Support</a>
+        <a class="button" href="https://thatxliner.github.io/BusTrackr/">Open web app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="narrow doc">
+    <h1>Support</h1>
+    <p class="lede">Support happens in GitHub issues. BusTrackr has no support email or phone line.</p>
+    <div class="actions">
+      <a class="button" href="https://github.com/ThatXliner/BusTrackr/issues/new">Report a problem</a>
+      <a class="button secondary" href="https://github.com/ThatXliner/BusTrackr/issues">See open issues</a>
+    </div>
+
+    <section>
+      <h2>Why is there no arrival time?</h2>
+      <p>The production timetable isn't confirmed, so the app shows "No confirmed timetable" and hides every estimate. It will stay that way until an operator confirms the timetable and the checkpoint direction.</p>
+    </section>
+
+    <section>
+      <h2>Why is the last observation days old?</h2>
+      <p>It's the most recent camera alert the server has received. A working feed can still hold an old observation, and the server can't tell a quiet camera from one that stopped sending.</p>
+    </section>
+
+    <section>
+      <h2>Does a sighting mean the shuttle is there now?</h2>
+      <p>No. A sighting means the camera detected a vehicle at that time. It doesn't identify the shuttle, its direction, or whether it has left.</p>
+    </section>
+
+    <section>
+      <h2>Is the amber marker GPS?</h2>
+      <p>No. It's a model estimate along the route. BusTrackr has no GPS feed and doesn't use your phone's location.</p>
+    </section>
+
+    <section>
+      <h2>What do "Feed unavailable" and "Waiting for fresh data" mean?</h2>
+      <p>"Feed unavailable" means the status request failed or the service reported a problem. "Waiting for fresh data" means the response is over 45 seconds old or the server's last feed check is over two minutes old. Both hide estimates. Choose Try again or pull down to refresh. The 3D map keeps working.</p>
+    </section>
+
+    <section>
+      <h2>The 3D map won't load</h2>
+      <p>Choose Reload 3D map. The app offers it if the scene takes over 60 seconds or the renderer stops. If it keeps happening, report your phone model and OS version in an issue.</p>
+    </section>
+
+    <section>
+      <h2>I see a yellow "Sample data" banner</h2>
+      <p>You're looking at illustrative data, not a real shuttle. Open Connection settings and connect to <code>https://bustrackr.valleychristianai.com/api/shuttle</code>.</p>
+    </section>
+
+    <section>
+      <h2>Where can I download the app?</h2>
+      <p>You can't yet. The iOS and Android apps are unreleased and aren't in either app store. Use the <a href="https://thatxliner.github.io/BusTrackr/">3D web app</a>, or follow the <a href="https://github.com/ThatXliner/BusTrackr/blob/main/mobile/README.md">setup guide</a> to run the native app from source.</p>
+    </section>
+
+    <section>
+      <h2>Reporting a problem</h2>
+      <p>Tell us what you expected, what happened, and the status text the app showed. Add your phone or browser version and a screenshot if you can. Issues are public, so leave out anything personal.</p>
+      <p>GitHub issues cover the software only. For questions about the shuttle service itself, contact the shuttle operator.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="index.html">Home</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="support.html" aria-current="page">Support</a>
+        <a href="https://github.com/ThatXliner/BusTrackr">GitHub</a>
+      </nav>
+      <p>© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+    </div>
+  </footer>
+</body>
+</html>

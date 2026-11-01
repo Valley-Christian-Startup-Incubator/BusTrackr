@@ -52,3 +52,9 @@ Live Gmail processing remains blocked on account-owner verification and credenti
 The SDK 57 dependency audit reports eight transitive advisory entries. Five high entries are in the Expo CLI toolchain through `node-forge` and its Zod 3 dependency. Three moderate entries concern Expo Router's `query-string` decoder chain. The available decoder fix changes CommonJS to ESM, and the CLI's Zod fix requires a major version change. No incompatible forced overrides or SDK downgrade were applied. Recheck upstream SDK patches before public distribution. The application uses a current direct Zod version for its own API validation.
 
 Fast mode could not be enabled or verified through the available app settings tools.
+
+## November 1 interface refresh
+
+Claude designed and implemented the refreshed React Native screen and map controls. Verified in Expo Go on an iPhone 17 Pro / iOS 26.5 simulator against the production API: the real October 30 observation appears with its date and age, the feed is connected, and the unconfirmed timetable suppresses estimates. Full-route preset, expanded map, return to details, connection settings, sample estimate mode, unavailable mode, and reconnecting to the production feed were exercised through native controls. Screenshot: `images/mobile-clean-interface.png`.
+
+The 15 mobile tests, TypeScript check, lint and iOS/Android bundle exports passed. The packaged offline scene verification passed. This supplements the October 26 evidence; it does not constitute physical-device or signed store-build verification. The earlier Gmail credential blocker has been resolved through Resend receiving and verified Google ARC forwarding. See `release-readiness.md` for current remaining work.

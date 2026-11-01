@@ -2,6 +2,10 @@
 
 BusTrackr includes a native Expo app in `mobile/`, a React web prototype with a local Three.js scene, and a camera-email worker. Both clients show checkpoint observations separately from arrival estimates.
 
+## Product website and release
+
+The product website source is in `website/`, with privacy and support pages. See [release readiness](docs/release-readiness.md) for current shipping blockers and [hosting instructions](docs/camera-alerts.md#product-website) to deploy it on the Mac.
+
 ## Native iOS and Android app
 
 See [native setup and build instructions](mobile/README.md). The app connects to the public production feed without credentials; sample mode is available in Connection settings. It combines native controls and status cards with the detailed 3D campus and route, bundled offline in a local WebView.

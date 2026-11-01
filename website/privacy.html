@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy · BusTrackr</title>
+  <meta name="description" content="What the BusTrackr app, web app, website and camera feed store and send.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="index.html"><img src="assets/icon.svg" alt="" width="30" height="30">BusTrackr</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="support.html">Support</a>
+        <a class="button" href="https://thatxliner.github.io/BusTrackr/">Open web app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="narrow doc">
+    <h1>Privacy</h1>
+    <p class="lede">BusTrackr has no accounts, no ads and no analytics. It doesn't ask who you are or where you are.</p>
+    <p class="small muted">Last updated November 1, 2026. This page describes how the software works today.</p>
+
+    <section>
+      <h2>The iOS and Android apps</h2>
+      <ul>
+        <li>The app saves one thing on your device: the status URL you connected to, or the sample scenario you picked.</li>
+        <li>It doesn't request location permission and doesn't use GPS.</li>
+        <li>It doesn't save camera observations between launches.</li>
+        <li>It contains no analytics or advertising SDK.</li>
+      </ul>
+      <p>While the app is open, it requests the status URL every ten seconds. The server that answers can see ordinary request details such as your IP address. The bundled 3D scene makes no network requests.</p>
+      <p>On iOS, the app may ask for local network access if you connect it to a status server on your own network.</p>
+    </section>
+
+    <section>
+      <h2>This website</h2>
+      <p>This site sets no cookies and loads no third-party scripts, fonts or trackers. The home page requests <code>/api/shuttle</code> from this same server once per page load to show feed status.</p>
+    </section>
+
+    <section>
+      <h2>The 3D web app</h2>
+      <p>The web app is a separate site hosted by GitHub Pages. GitHub may log visits under the <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub privacy statement</a>. It also loads fonts from Google Fonts, so Google can see your IP address under the <a href="https://policies.google.com/privacy">Google privacy policy</a>. The web app's own code sets no cookies and has no analytics.</p>
+    </section>
+
+    <section>
+      <h2>The status server</h2>
+      <p>Requests to this site and to <code>/api/shuttle</code> reach the server through Cloudflare, which handles them under the <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>. BusTrackr's server code doesn't log individual requests or store anything about visitors.</p>
+    </section>
+
+    <section>
+      <h2>Camera alerts</h2>
+      <p>A camera at the checkpoint emails an alert when a bus enters its zone. <a href="https://resend.com/legal/privacy-policy">Resend</a> receives those emails and notifies the server, which reads each message and keeps only:</p>
+      <ul>
+        <li>the camera's event time, the email's date, the time the email arrived, and the checkpoint name</li>
+        <li>a hash of the email's message ID, plus receipt and delivery IDs, used to skip duplicates and retries</li>
+      </ul>
+      <p>The server doesn't store email bodies or attachments in its history. When it must check the signature on a forwarded email, it reads the raw message, up to 2 MB, and doesn't keep it.</p>
+      <p>The public feed exposes the latest observation, the number of saved alerts and the current prediction. There is no public history endpoint. History stays on the server, with no automatic deletion schedule.</p>
+    </section>
+
+    <section>
+      <h2>Questions and changes</h2>
+      <p>Ask about this page in <a href="https://github.com/ThatXliner/BusTrackr/issues">GitHub issues</a>. Issues are public, so leave out anything personal. Changes to this page appear in the repository's commit history.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="index.html">Home</a>
+        <a href="privacy.html" aria-current="page">Privacy</a>
+        <a href="support.html">Support</a>
+        <a href="https://github.com/ThatXliner/BusTrackr">GitHub</a>
+      </nav>
+      <p>© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+    </div>
+  </footer>
+</body>
+</html>
