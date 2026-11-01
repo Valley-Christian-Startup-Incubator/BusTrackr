@@ -1,0 +1,7 @@
+protocol: http2
+tunnel: 47e0adb0-6073-404f-88f8-359a1ea0adb0
+credentials-file: /Users/aimac/.cloudflared/47e0adb0-6073-404f-88f8-359a1ea0adb0.json
+ingress:
+  - hostname: ssh.valleychristianai.com
+    service: ssh://127.0.0.1:22
+  - service: http_status:404

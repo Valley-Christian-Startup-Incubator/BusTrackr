@@ -191,3 +191,7 @@ Keep credentials, history and logs outside `website/`. Verify the home page, pri
 ### SSH connection reliability
 
 The local `valley-big-mac` SSH entry uses `IPQoS none`, a 30-second connection timeout, and automatic connection reuse (`ControlMaster auto`, `ControlPersist 600`, `ControlPath ~/.ssh/cm-%C`). These settings restored responsive access during the November 1 deployment. Authentication and host-key verification remain enabled. The previous SSH configuration was backed up locally before editing. If a tunnel is slow, reuse an authenticated connection rather than opening many parallel SSH handshakes.
+
+The server logs subsequently identified repeated QUIC edge timeouts. Both BusTrackr and SSH now use `protocol: http2` (TCP) in their Cloudflare Tunnel configuration. SSH has a dedicated tunnel, `vcs-ssh` (`47e0adb0-6073-404f-88f8-359a1ea0adb0`), and LaunchAgent `com.cloudflare.vcs-ssh`, rather than sharing the older `vcs-mac-studio` tunnel. Its ingress is `ssh://127.0.0.1:22`; the existing Cloudflare Access login and SSH key checks still apply. The old shared tunnel and its other service routes were left running. Manifests are in `deploy/vcs-ssh.yml` and `deploy/com.cloudflare.vcs-ssh.plist`. Credentials remain only on the Mac.
+
+Rollback, if ever needed: route `ssh.valleychristianai.com` back to tunnel `393fc0ab-4a84-460e-9734-adfbe53c6929` from the Mac using its original Cloudflare configuration. Do not stop the dedicated SSH tunnel until the replacement route is verified.

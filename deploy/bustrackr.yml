@@ -1,3 +1,4 @@
+protocol: http2
 tunnel: 9ad79663-d36e-4087-ada3-aff317345f3a
 credentials-file: /Users/aimac/.cloudflared/9ad79663-d36e-4087-ada3-aff317345f3a.json
 ingress:
