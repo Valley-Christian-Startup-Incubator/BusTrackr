@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Circle, Path, Rect} from 'react-native-svg';
 import {pacificTime, parseEndpoint} from '../shuttle/feed';
 import {defaultSource, loadSource, saveSource} from '../shuttle/settings';
@@ -116,6 +116,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
       </View>}
     </ScrollView>
     <Modal visible={settings} animationType="slide" onRequestClose={() => setSettings(false)}>
+      <SafeAreaProvider>
       <SafeAreaView style={s.page}>
         <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={s.header}><Text style={s.wordmark}>Connection</Text><Button label="Done" onPress={() => setSettings(false)} secondary/></View>
@@ -137,6 +138,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   </SafeAreaView>;
 }
