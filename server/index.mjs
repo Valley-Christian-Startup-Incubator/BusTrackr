@@ -5,6 +5,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {boundedText, checkReceiver, createReceiver, resendApi} from './resend.mjs';
 import {loadState, saveState, parseAlert, recordAlert} from './alerts.mjs';
 import {estimate, validateSchedule} from './estimator.mjs';
+import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
 
 const sample = process.argv.includes('--sample');
 const once = process.argv.includes('--once');
@@ -53,10 +54,27 @@ function payload() {
   if (!sample && feedStatus!=='connected') {prediction.marker=null;prediction.status='offline';prediction.reason='Inbound email feed is not current; position estimate hidden.';}
   return {status:feedStatus,lastCheckedAt,latest:state.latest,eventCount:state.events.length,prediction};
 }
+const allowedOrigins=(process.env.ALERT_ALLOWED_ORIGIN || '').split(',').map(value=>value.trim()).filter(Boolean);
+const delivery=notificationDelivery(sample?{}:process.env);
+let notifications;
+try {
+  if(!once)notifications=await createNotificationService({path:process.env.NOTIFICATIONS_STATE_FILE || `${statePath}.notifications`,
+    events:()=>sample?[]:state.events,...delivery});
+} catch {console.error('Notification storage unavailable; camera ingestion remains active.');}
+const unavailableNotifications={publicConfig:()=>({webPushPublicKey:null,expo:false}),
+  register:async()=>{throw Object.assign(new Error('Notification storage unavailable'),{status:503});},
+  remove:async()=>{throw Object.assign(new Error('Notification storage unavailable'),{status:503});}};
+const handleNotifications=notificationRoutes(notifications || unavailableNotifications,{allowedOrigins});
+let notifying=false;
+const notificationTimer=!once && !sample && notifications && (delivery.config.expo || delivery.config.webPushPublicKey)?setInterval(()=>{
+  if(notifying)return;
+  notifying=true;notifications.tick().catch(()=>console.error('Notification processing failed; camera ingestion remains active.')).finally(()=>{notifying=false;});
+},5000):null;
 const server = createServer(async (req,res)=>{
-  const origin=process.env.ALERT_ALLOWED_ORIGIN;
-  if (origin && req.headers.origin===origin) res.setHeader('Access-Control-Allow-Origin',origin);
+  const origin=req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) res.setHeader('Access-Control-Allow-Origin',origin);
   res.setHeader('Vary','Origin'); res.setHeader('Cache-Control','no-store'); res.setHeader('Content-Type','application/json');
+  if (await handleNotifications(req,res)) return;
   if (req.method === 'GET' && req.url === '/api/health') {res.end(JSON.stringify({status:missing.length?'needs_configuration':payload().status,storage:'local',missing}));return;}
   if (req.method === 'POST' && req.url === '/api/resend/inbound') {
     if (!receiver) {res.writeHead(503);res.end(JSON.stringify({error:'Receiver needs configuration'}));return;}
@@ -75,7 +93,7 @@ if (!once) server.listen(port,process.env.ALERT_HOST || '127.0.0.1',()=>console.
 let stopping=false;
 const abort=new AbortController();
 server.requestTimeout = 20_000;
-for (const signal of ['SIGINT','SIGTERM']) process.on(signal,()=>{stopping=true;abort.abort();server.close();});
+for (const signal of ['SIGINT','SIGTERM']) process.on(signal,()=>{stopping=true;abort.abort();if(notificationTimer)clearInterval(notificationTimer);server.close();});
 if (!sample && !missing.length) {
   while (!stopping) {
     try {

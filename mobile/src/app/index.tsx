@@ -1,5 +1,6 @@
-import {useCallback, useEffect, useState} from 'react';
-import {ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View} from 'react-native';
+import {lazy, Suspense, useCallback, useEffect, useRef, useState} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View, useWindowDimensions} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Circle, Path, Rect} from 'react-native-svg';
 import {pacificTime, parseEndpoint} from '../shuttle/feed';
@@ -7,7 +8,11 @@ import {defaultSource, loadSource, saveSource} from '../shuttle/settings';
 import {scenarios, type Source} from '../shuttle/samples';
 import {useShuttle} from '../shuttle/useShuttle';
 import {colors, styles as s} from '../styles';
-import {SceneMap} from '../map/SceneMap';
+import {observationAge} from '../shuttle/observation';
+import {NotificationControl} from '../notifications/NotificationControl';
+
+const SceneMap = lazy(() => import('../map/SceneMap').then(module => ({default: module.SceneMap})));
+const modeKey = 'bustrackr.display-mode.v1';
 
 const messages = {
   loading: {title: 'Checking the feed', body: 'Looking for the latest camera observation.'},
@@ -27,7 +32,7 @@ function ageLabel(minutes: number) {
   return `${days} ${days === 1 ? 'day' : 'days'} ago`;
 }
 function Icon({kind, color = colors.ink, size = 24}: {kind: 'bus' | 'camera' | 'settings' | 'refresh'; color?: string; size?: number}) {
-  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" accessible={false}>
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" accessible={Platform.OS === 'web' ? undefined : false} aria-hidden={true}>
     {kind === 'bus' ? <><Rect x={5} y={3} width={14} height={16} rx={3}/><Path d="M5 11h14M8 19v2m8-2v2M8 15h1m6 0h1M9 6h6"/></> :
       kind === 'camera' ? <><Rect x={3} y={7} width={18} height={13} rx={3}/><Circle cx={12} cy={13} r={3}/><Path d="m7 7 2-4h6l2 4"/></> :
         kind === 'refresh' ? <Path d="M20 12a8 8 0 1 1-2.6-5.9M20 3v4h-4"/> :
@@ -45,12 +50,33 @@ function Fact({label, value}: {label: string; value: string}) {
 function ShuttleScreen({source, changeSource, settingsError}: {source: Source; changeSource: (source: Source) => void; settingsError: string}) {
   const {view, feed, now, refresh} = useShuttle(source);
   const [settings, setSettings] = useState(false);
+  const [mode, setMode] = useState<'simple' | 'map'>('simple');
+  const modeChanged = useRef(false);
+  const {width, height} = useWindowDimensions();
+  const numeralSize = Math.min(240, height * .28, (width - 48) / 1.9);
+  const [modeError, setModeError] = useState('');
+  useEffect(() => {
+    let disposed = false;
+    AsyncStorage.getItem(modeKey).then(saved => {
+      if (!disposed && !modeChanged.current && saved === 'map') setMode('map');
+    }).catch(() => {if (!disposed) setModeError('Could not restore your display preference.');});
+    return () => {disposed = true;};
+  }, []);
+  function changeMode(next: 'simple' | 'map') {
+    modeChanged.current = true;
+    setMode(next); setMapExpanded(false); setModeError('');
+    void AsyncStorage.setItem(modeKey, next).catch(() => setModeError('This view works now, but could not be saved.'));
+  }
   const [mapExpanded, setMapExpanded] = useState(false);
   const [endpoint, setEndpoint] = useState(source.kind === 'api' ? source.endpoint : '');
   const [inputError, setInputError] = useState('');
   const toggleMap = useCallback(() => setMapExpanded(value => !value), []);
   const sample = source.kind === 'sample' || feed?.status === 'sample';
   const observation = feed?.latest;
+  const age = observationAge(observation?.eventAt, now);
+  const minuteText = age.kind === 'observed' ? age.minutes.toLocaleString() : '';
+  const fittedNumeralSize = Math.min(numeralSize, (Math.min(width, 620) - 48) / Math.max(1, minuteText.length * .62));
+  const observationOffline = view.kind === 'unavailable' || view.kind === 'stale' || view.kind === 'loading';
   const status = view.kind === 'loading' ? 'Checking feed' : view.kind === 'unavailable' ? 'Feed unavailable' : view.kind === 'stale' ? 'Feed is stale' : sample ? 'Illustrative data' : 'Feed connected';
   const statusColor = view.kind === 'loading' ? colors.muted : view.kind === 'unavailable' || view.kind === 'stale' ? colors.error : sample ? colors.amber : colors.teal;
   function connect() {
@@ -66,7 +92,27 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
       <Pressable accessibilityRole="button" accessibilityLabel="Connection settings" onPress={() => setSettings(true)} style={({pressed}) => [s.iconButton, pressed && s.pressed]}><Icon kind="settings" size={22}/></Pressable>
     </View>
     {sample && <View style={s.sampleBanner}><Text style={s.sampleBannerText}>SAMPLE DATA · NOT A REAL SHUTTLE</Text><Pressable accessibilityRole="button" onPress={() => setSettings(true)} style={s.bannerButton}><Text style={s.sampleLink}>Connect feed</Text></Pressable></View>}
-    <SceneMap prediction={view.kind === 'estimated' ? view.prediction : null} checkedAt={feed?.lastCheckedAt ?? null} expanded={mapExpanded} onExpand={toggleMap}/>
+    <View style={s.modeSwitch} accessibilityRole="tablist" accessibilityLabel="Display mode">
+      {(['simple', 'map'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{selected: mode === value}} onPress={() => changeMode(value)} style={[s.modeButton, mode === value && s.modeSelected]}><Text style={[s.modeText, mode === value && s.modeSelectedText]}>{value === 'simple' ? 'Simple' : 'Map'}</Text></Pressable>)}
+    </View>
+    {!!modeError && <Text accessibilityRole="alert" style={s.preferenceError}>{modeError}</Text>}
+    {mode === 'simple' ? <ScrollView style={s.flex} contentContainerStyle={s.simpleContent} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.teal}/>}>
+      <View style={s.simpleReading}>
+        <Text accessibilityRole="header" style={s.simpleLead}>The last Fehren bus was detected</Text>
+        {age.kind === 'observed' ? <>
+          <Text testID="observation-minutes" accessibilityLabel={`${age.minutes.toLocaleString()} ${age.minutes === 1 ? 'minute' : 'minutes'} ago`} style={[s.simpleNumber, {fontSize: fittedNumeralSize, lineHeight: fittedNumeralSize * 1.1, color: observationOffline ? colors.muted : age.color}]} allowFontScaling={false} numberOfLines={1}>{minuteText}</Text>
+          <Text style={s.simpleUnit}>{age.minutes === 1 ? 'minute ago' : 'minutes ago'}</Text>
+          {age.minutes === 0 && <Text style={s.simpleNote}>Less than a minute ago</Text>}
+          <Text style={s.simpleNote}>{pacificTime(observation!.eventAt!)} · {observation!.checkpoint}</Text>
+        </> : <Text style={s.simpleEmpty}>{age.kind === 'clock-error' ? 'Camera time is ahead. Waiting for a valid sighting.' : view.kind === 'loading' ? 'Checking the feed…' : observation ? 'Camera time unavailable' : 'No detections yet'}</Text>}
+      </View>
+      <View style={s.simpleFooter}>
+        <Text accessibilityLiveRegion="polite" style={s.simpleStatus}>{observationOffline ? `${status}. ${observation ? 'A newer bus may have passed.' : 'New sightings are unavailable.'}` : sample ? 'Illustrative sample sighting' : 'Updates automatically'}</Text>
+        <Pressable accessibilityRole="button" onPress={refresh} style={s.simpleRefresh}><Text style={s.simpleRefreshText}>Refresh</Text></Pressable>
+        {!!settingsError && <Text accessibilityRole="alert" style={s.error}>{settingsError}</Text>}
+      </View>
+    </ScrollView> : <>
+    <Suspense fallback={<View style={s.startup}><ActivityIndicator color={colors.teal}/><Text style={s.body}>Opening map…</Text></View>}><SceneMap prediction={view.kind === 'estimated' ? view.prediction : null} checkedAt={feed?.lastCheckedAt ?? null} expanded={mapExpanded} onExpand={toggleMap}/></Suspense>
     <ScrollView style={mapExpanded ? {display: 'none'} : s.flex} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.teal}/> }>
       <View style={s.row}>
         <View style={s.statusRow}><View style={[s.statusDot, {backgroundColor: statusColor}]}/><Text accessibilityLiveRegion="polite" style={s.statusText}>{status}</Text></View>
@@ -115,6 +161,8 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
         <View style={s.choices}>{scenarios.map(scenario => <Pressable key={scenario.id} accessibilityRole="button" accessibilityState={{selected: source.scenario === scenario.id}} onPress={() => changeSource({kind: 'sample', scenario: scenario.id})} style={[s.choice, source.scenario === scenario.id && s.choiceSelected]}><Text style={[s.choiceText, source.scenario === scenario.id && s.choiceTextSelected]}>{scenario.label}</Text></Pressable>)}</View>
       </View>}
     </ScrollView>
+    </>}
+    <View style={s.notificationFooter}><NotificationControl endpoint={source.kind === 'api' ? source.endpoint : null} sample={sample}/></View>
     <Modal visible={settings} animationType="slide" onRequestClose={() => setSettings(false)}>
       <SafeAreaProvider>
       <SafeAreaView style={s.page}>
@@ -134,7 +182,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
             <Text style={s.eyebrow}>About the data</Text>
             <Text style={s.body}>Camera sightings are observations at one checkpoint. Arrival ranges and the amber 3D route marker are model estimates, not GPS.</Text>
             <Text style={s.body}>An unconfirmed timetable, ambiguous run, stale update or unavailable feed hides all estimates. No camera sighting proves a subsequent departure.</Text>
-            <Text style={s.caption}>Only the status URL and sample selection are stored on this device. No location permission is needed.</Text>
+            <Text style={s.caption}>Your feed, display preference and notification subscription are stored on this device. No location permission is needed.</Text>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
