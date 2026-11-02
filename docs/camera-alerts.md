@@ -180,19 +180,11 @@ On November 1, the October 30 camera alert was recovered after fixing optional t
 
 The same worker serves the product website at `https://bustrackr.valleychristianai.com/`. `/api/*` remains reserved for backend requests. Website source is in `website/`; the static handler only serves public web file types and rejects hidden files and symlinks escaping that directory.
 
-Deploy website changes from the repository root:
+Deploy the website and map with the [atomic release controller](website-deployment.md). It validates a separate release, retains versioned assets, switches the website root atomically, and rolls back if public checks fail. Website updates must not restart the camera worker, frontend, or Cloudflare tunnel. Do not copy files over a live release. Backend upgrades remain separate because camera and notification state have one writer.
 
-```sh
-npm run website:prepare
-npm run website:check
-scp -r website valley-big-mac:apps/bustrackr/
-scp server/index.mjs server/website.mjs valley-big-mac:apps/bustrackr/server/
-ssh valley-big-mac 'launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
-```
+Keep credentials, history, and logs outside every website release. Verify both public hostnames, the map, and `/api/health` after deployment.
 
-Keep credentials, history and logs outside `website/`. Verify the home page, privacy/support pages and `/api/health` after deploying.
-
-### SSH connection reliability
+## SSH connection reliability
 
 The local `valley-big-mac` SSH entry uses `IPQoS none`, a 30-second connection timeout, and automatic connection reuse (`ControlMaster auto`, `ControlPersist 600`, `ControlPath ~/.ssh/cm-%C`). These settings restored responsive access during the November 1 deployment. Authentication and host-key verification remain enabled. The previous SSH configuration was backed up locally before editing. If a tunnel is slow, reuse an authenticated connection rather than opening many parallel SSH handshakes.
 
@@ -206,7 +198,7 @@ Website CSS and JavaScript use content-hashed filenames. After editing `website/
 
 The website uses the existing self-hosted Umami instance at `https://analytics.bryanhu.com` on SSH host `big-mac`. Its BusTrackr website ID is `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436`. The public website ID is safe to include in HTML. Keep dashboard credentials on the analytics host.
 
-The three HTML pages in `website/` include the tracker. The root React entry HTML also includes it for its next GitHub Pages deployment. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
+The three HTML pages in `website/` include the tracker. The root React entry HTML includes the same tracker when built into the self-hosted `/BusTrackr/` map. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
 
 Run `node scripts/check-analytics.mjs` to verify an accepted browser pageview with a unique verification campaign. Pass a URL as the first argument to check another deployment. The check uses a regular browser user agent because Umami filters headless browser traffic as bots. Confirm the campaign appears in Umami as well. An HTTP 200 response alone does not prove that Umami stored an event.
 

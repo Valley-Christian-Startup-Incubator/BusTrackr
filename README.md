@@ -24,7 +24,7 @@ npm run build
 npm run preview -- --port 4174
 ```
 
-The production base path is `/BusTrackr/`.
+The production base path is `/BusTrackr/`. The website, map, and API are self-hosted on `valley-big-mac`. Use the [atomic website deployment procedure](docs/website-deployment.md) for website and map releases. These releases do not restart the camera worker or Cloudflare tunnel.
 
 ## Camera email alerts
 
