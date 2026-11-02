@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BusTrackr: check the Fehren–Skyway shuttle</title>
   <meta name="description" content="See the last camera sighting on the Fehren–Skyway shuttle route, then open the whole route in 3D.">
-  <meta name="theme-color" content="#ffc91f">
+  <meta name="theme-color" content="#edf0e9">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -13,8 +13,10 @@
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap">
-      <span class="route-name">Fehren to Skyway</span>
+      <a class="brand" href="index.html">BusTrackr</a>
       <nav class="site-nav" aria-label="Main">
+        <a href="#sighting">Sightings</a>
+        <a href="#views">The route</a>
         <a href="support.html">Support</a>
       </nav>
     </div>
@@ -22,20 +24,20 @@
 
   <main id="main">
     <section class="hero">
-      <div class="wrap">
-        <h1 class="monument"><span>BusTrackr</span></h1>
-        <div class="hero-row">
-          <p class="lede">Check the Fehren–Skyway shuttle before you walk. See the last camera sighting, then open the whole route in 3D.</p>
+      <div class="wrap hero-layout">
+        <div class="hero-copy">
+          <h1>Fehren to<br>Skyway.</h1>
+          <p class="lede">A closer look at your campus shuttle. Check the latest camera sighting and explore the route in 3D.</p>
           <div class="hero-action">
-            <a class="button" href="https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/">Open web app</a>
+            <a class="button" href="https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/">Open the map <span aria-hidden="true">↗</span></a>
             <p class="hero-live" id="hero-live">Live status unavailable</p>
           </div>
         </div>
+        <figure class="panorama">
+          <div class="crop crop--campus"><img src="assets/scene-campus.png" width="1440" height="900" fetchpriority="high" alt="Modeled Skyway Campus, with pale stone buildings, trees, playing fields and the shuttle road."></div>
+          <figcaption>Skyway Campus · The BusTrackr model</figcaption>
+        </figure>
       </div>
-      <figure class="panorama">
-        <div class="crop crop--campus"><img src="assets/scene-campus.png" width="1440" height="900" fetchpriority="high" alt="3D model of Skyway Campus: main buildings, a pool, a baseball diamond, a stadium and parking, with houses on the far side."></div>
-        <figcaption class="wrap">Skyway Campus in the BusTrackr 3D scene. A model, not a photograph.</figcaption>
-      </figure>
     </section>
 
     <section class="board" id="sighting" aria-labelledby="sighting-title">
@@ -50,24 +52,15 @@
           </dl>
           <p class="board-note" data-rise>A sighting says when a camera saw a vehicle, not where it is now. Times are Pacific. <a href="support.html#reading">How to read the feed</a></p>
         </div>
-        <figure class="route" data-rise>
-          <figcaption>The full route in 3D. A model, not a live position.</figcaption>
-          <div class="crop crop--route"><img src="assets/app-live-feed.png" width="1206" height="2622" loading="lazy" alt="Overhead 3D view of the shuttle corridor, with Skyway Campus at the top and the road running off toward Fehren."></div>
-        </figure>
+
       </div>
     </section>
 
     <section class="views" id="views" aria-labelledby="views-title">
-      <div class="band" aria-hidden="true">
-        <div class="band-track">
-          <div><span>Campus</span><i></i><span>Full route</span><i></i><span>Fehren</span><i></i><span>Buildings</span><i></i><span>Sports</span><i></i></div>
-          <div><span>Campus</span><i></i><span>Full route</span><i></i><span>Fehren</span><i></i><span>Buildings</span><i></i><span>Sports</span><i></i></div>
-        </div>
-      </div>
       <div class="wrap views-body">
         <div class="views-head">
-          <h2 id="views-title" data-rise>The whole route, down to the roofs.</h2>
-          <p data-rise>Terrain, roads, playing fields and trees are modeled from USGS elevation and OpenStreetMap data. Jump to Campus, Full route, Fehren, Buildings or Sports, then pan and orbit.</p>
+          <h2 id="views-title" data-rise>A little closer.</h2>
+          <p data-rise>From the Conservatory to Fehren Lot. Explore the buildings, fields and roads that make the journey familiar.</p>
         </div>
         <figure class="plate" data-rise>
           <div class="crop crop--buildings"><img src="assets/scene-buildings.png" width="1440" height="900" loading="lazy" alt="Close 3D view of a campus building with a glass front, stone walls and a steel canopy, with trees in front and the stadium behind."></div>
