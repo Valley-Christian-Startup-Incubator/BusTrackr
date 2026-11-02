@@ -90,7 +90,7 @@ A working feed supplies observations. Position estimates also require the confir
 
 ### Templates, persistence and operations
 
-Commit example files, never filled-in files. Root `.env.server.example` is the backend template; root `.env.example` and `mobile/.env.example` contain only public client settings. `hosting/` retains the old Vercel implementation for reference and is not used in production.
+Commit example files, never filled-in files. Root `.env.server.example` is the backend template; root `.env.example` and `mobile/.env.example` contain only public client settings. The retired Vercel deployment sources have been removed. Production does not depend on Vercel.
 
 The backend uses a private Node 24.22.1 runtime at `/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64`. It does not change the system Node version. State lives at `/Users/aimac/apps/bustrackr/.data/alerts.json` and survives service restarts and deployments. Keep this directory and `.env.server` when updating code. Back up the state file as part of the machine's backup policy; no off-machine backup has been configured by this deployment.
 
