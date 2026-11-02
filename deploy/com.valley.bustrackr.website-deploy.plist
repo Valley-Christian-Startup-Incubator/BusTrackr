@@ -18,6 +18,7 @@
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>60</integer>
   <key>ProcessType</key><string>Background</string>
+  <key>LimitLoadToSessionType</key><string>Background</string>
   <key>Nice</key><integer>10</integer>
   <key>StandardOutPath</key><string>/Users/aimac/apps/bustrackr/logs/website-deploy.out.log</string>
   <key>StandardErrorPath</key><string>/Users/aimac/apps/bustrackr/logs/website-deploy.err.log</string>
