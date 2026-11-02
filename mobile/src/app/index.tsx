@@ -74,7 +74,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
       </View>
       {!!settingsError && <Text accessibilityRole="alert" style={s.error}>{settingsError}</Text>}
       <View style={s.card}>
-        <View style={s.row}><View style={s.statusRow}><View style={s.estimateDot}/><Text style={[s.eyebrow, s.amber]}>ARRIVAL ESTIMATE</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
+        <View style={s.row}><View style={s.statusRow}><View style={s.estimateDot}/><Text style={[s.eyebrow, s.amber]}>Arrival estimate</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
         {view.kind === 'estimated' ? <>
           <View style={s.estimateHead}>
             <Text accessibilityLabel={`Estimated arrival in ${view.rangeMinutes[0]} to ${view.rangeMinutes[1]} minutes`} style={s.range} maxFontSizeMultiplier={1.5}>{view.rangeMinutes[0]}–{view.rangeMinutes[1]} <Text style={s.minutes}>min</Text></Text>
@@ -96,7 +96,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
         </>}
       </View>
       <View style={[s.card, s.observedCard]}>
-        <View style={s.row}><View style={s.statusRow}><Icon kind="camera" color={colors.teal} size={16}/><Text style={[s.eyebrow, s.teal]}>LAST OBSERVATION</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
+        <View style={s.row}><View style={s.statusRow}><Icon kind="camera" color={colors.teal} size={16}/><Text style={[s.eyebrow, s.teal]}>Last camera sighting</Text></View>{sample && <Text style={s.sampleTag}>SAMPLE</Text>}</View>
         <View style={s.observedHead}>
           <Text style={s.observedTitle}>{observation ? observation.checkpoint : feed ? 'No camera observations yet' : 'No observation available'}</Text>
           {observation?.eventAt && <Text style={s.observationAge}>{ageLabel(Math.floor((now - Date.parse(observation.eventAt)) / 60_000))}</Text>}
@@ -110,7 +110,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
         <Text style={s.caption}>{feed ? `${feed.eventCount} camera ${feed.eventCount === 1 ? 'email' : 'emails'} saved` : 'Observation history unavailable'} · Times shown in Pacific time</Text>
       </View>
       {source.kind === 'sample' && <View style={s.card}>
-        <Text style={s.eyebrow}>EXPLORE SAMPLE STATES</Text>
+        <Text style={s.eyebrow}>Explore sample states</Text>
         <Text style={s.caption}>Illustrative scenarios. Not connected to a feed.</Text>
         <View style={s.choices}>{scenarios.map(scenario => <Pressable key={scenario.id} accessibilityRole="button" accessibilityState={{selected: source.scenario === scenario.id}} onPress={() => changeSource({kind: 'sample', scenario: scenario.id})} style={[s.choice, source.scenario === scenario.id && s.choiceSelected]}><Text style={[s.choiceText, source.scenario === scenario.id && s.choiceTextSelected]}>{scenario.label}</Text></Pressable>)}</View>
       </View>}
@@ -130,7 +130,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
             <Button label="Connect to feed" onPress={connect}/>
             <Button label="Use sample data" secondary onPress={() => {changeSource(defaultSource); setSettings(false); setInputError('');}}/>
             <View style={s.rule}/>
-            <Text style={s.eyebrow}>ABOUT THE DATA</Text>
+            <Text style={s.eyebrow}>About the data</Text>
             <Text style={s.body}>Camera sightings are observations at one checkpoint. Arrival ranges and the amber 3D route marker are model estimates, not GPS.</Text>
             <Text style={s.body}>An unconfirmed timetable, ambiguous run, stale update or unavailable feed hides all estimates. No camera sighting proves a subsequent departure.</Text>
             <Text style={s.caption}>Only the status URL and sample selection are stored on this device. No location permission is needed.</Text>

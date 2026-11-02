@@ -101,7 +101,7 @@ export const SceneMap = memo(function SceneMap({prediction, checkedAt, expanded,
       <View pointerEvents="box-none" style={styles.bottom}>
         <View pointerEvents="none" style={styles.mapLabel}>
           <View style={[styles.mapLabelDot, prediction ? styles.mapLabelDotEstimate : styles.mapLabelDotEmpty]}/>
-          <Text maxFontSizeMultiplier={1.3} style={styles.mapLabelText}>{prediction ? 'AMBER = ESTIMATE · NOT GPS' : 'NO POSITION ESTIMATE'}</Text>
+          <Text maxFontSizeMultiplier={1.3} style={styles.mapLabelText}>{prediction ? 'Amber · estimated position' : 'No position estimate'}</Text>
         </View>
         <View pointerEvents="box-none" style={styles.toolbar}>
           <Pressable accessibilityRole="button" accessibilityLabel={orbit ? 'Switch map to pan' : 'Switch map to orbit'} accessibilityState={{selected: orbit, disabled: !enabled}} disabled={!enabled} onPress={() => setOrbit(value => !value)} style={({pressed}) => [styles.control, !enabled && styles.disabled, pressed && styles.pressed]}>
@@ -119,20 +119,20 @@ export const SceneMap = memo(function SceneMap({prediction, checkedAt, expanded,
     <Text style={styles.attribution}>© OpenStreetMap contributors · USGS terrain · Modeled scenery</Text>
   </View>;
 });
-const floating = {backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, boxShadow: '0 1px 4px rgba(18, 22, 27, .16)'};
+const floating = {backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, boxShadow: '0 1px 3px rgba(38, 59, 55, .08)'};
 const styles = StyleSheet.create({
   section: {backgroundColor: colors.paper}, expanded: {flex: 1},
   viewport: {backgroundColor: '#d9e1db'}, web: {flex: 1, backgroundColor: '#d9e1db'},
   presets: {position: 'absolute', top: 0, left: 0, right: 0, flexGrow: 0},
   presetRow: {gap: 6, padding: 10},
-  chip: {...floating, minHeight: 44, minWidth: 44, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 22},
-  chipSelected: {backgroundColor: colors.ink, borderColor: colors.ink},
-  chipTextSelected: {color: colors.card},
-  control: {...floating, minHeight: 44, minWidth: 44, paddingHorizontal: 11, flexDirection: 'row', gap: 5, justifyContent: 'center', alignItems: 'center', borderRadius: 12},
+  chip: {...floating, minHeight: 44, minWidth: 44, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 8},
+  chipSelected: {backgroundColor: colors.tealTint, borderColor: colors.teal},
+  chipTextSelected: {color: colors.ink},
+  control: {...floating, minHeight: 44, minWidth: 44, paddingHorizontal: 11, flexDirection: 'row', gap: 5, justifyContent: 'center', alignItems: 'center', borderRadius: 8},
   controlText: {fontSize: 13, fontWeight: '600', color: colors.ink},
   shrink: {flexShrink: 1},
   disabled: {opacity: .45}, pressed: {opacity: .6},
-  zoom: {...floating, position: 'absolute', right: 10, top: 64, borderRadius: 12},
+  zoom: {...floating, position: 'absolute', right: 10, top: 64, borderRadius: 8},
   zoomButton: {width: 44, height: 44, justifyContent: 'center', alignItems: 'center'},
   zoomRule: {height: StyleSheet.hairlineWidth, backgroundColor: colors.line},
   bottom: {position: 'absolute', left: 10, right: 10, bottom: 10, gap: 8},
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   mapLabelDot: {width: 8, height: 8, borderRadius: 4},
   mapLabelDotEstimate: {backgroundColor: colors.amber},
   mapLabelDotEmpty: {borderWidth: 1.5, borderColor: colors.muted},
-  mapLabelText: {fontSize: 11, fontWeight: '700', letterSpacing: .4, color: colors.ink},
+  mapLabelText: {fontSize: 12, fontWeight: '500', letterSpacing: 0, color: colors.ink},
   attribution: {fontSize: 10, color: colors.muted, paddingHorizontal: 16, paddingVertical: 4},
   loading: {position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, paddingTop: 64, paddingBottom: 112, gap: 8, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.paper},
   loadingTitle: {fontSize: 17, fontWeight: '600', color: colors.ink}, note: {fontSize: 13, color: colors.muted, textAlign: 'center'},

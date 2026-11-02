@@ -88,3 +88,66 @@ main[data-tracking=camera] .ride-card:not(.camera-panel),main[data-tracking=came
  .camera-panel .camera-observation,.camera-panel .camera-estimate{padding-top:10px;margin-top:10px}
  .camera-panel strong{font-size:14px}.camera-panel p{font-size:12px}
 }
+
+/* Map palette: pale stone controls and sage selections around the terrain. */
+:root{--paper:#edf0e9;--surface:#f7f7f1;--sage:#dfe6dc;--line:#ccd7c7;--ink:#263b37;--muted:#53645c;--accent:#456354;color:var(--ink);background:var(--paper);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.map-vignette{background:none}
+header,.scene-readout,.gesture{ text-shadow:none }
+.brand{font-family:inherit;font-size:23px;font-weight:600;letter-spacing:-.7px}
+.brand-light{font-weight:500;color:var(--ink)}
+.brand small,.scene-quality,.eyebrow,.card-header .eyebrow,.mini-head,.mini-head>span:last-child{color:var(--muted);letter-spacing:.6px}
+.brand-symbol{background:var(--accent);color:var(--surface);border:0;border-radius:8px;backdrop-filter:none}
+.brand-symbol span{color:var(--sage)}
+.scene-quality{background:var(--surface);padding:8px 10px;border-radius:6px}
+.status-dot{background:var(--accent)}
+.about-button{color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:44px;min-height:44px;align-items:center;justify-content:center}
+:is(.view-switch,.tracking-switch,.map-tools button,.ride-card,.camera-panel,.mini-map,.simulation-bar,.building-menu,.loading,.modal){background:var(--surface);color:var(--ink);border:1px solid var(--line);backdrop-filter:none;box-shadow:none;border-radius:10px}
+:is(.view-switch,.tracking-switch){border-radius:8px;padding:4px}
+:is(.view-switch,.tracking-switch,.route-switch) button{color:var(--muted);min-height:44px;font-size:12px;border-radius:5px}
+:is(.view-switch,.route-switch) button.active,.tracking-switch button[aria-pressed=true]{background:var(--sage);color:var(--ink);box-shadow:none}
+button:hover,.building-menu button:hover{background-color:#dfe6dc}
+button:focus-visible,a:focus-visible{outline-color:var(--accent)}
+.map-tools button,.inspect-button,.expand-button{width:44px;height:44px;color:var(--ink);background:var(--surface);border-color:var(--line);backdrop-filter:none}
+.map-tools .orbit-toggle{min-width:64px;height:44px;font-size:11px;letter-spacing:0}
+.map-tools .orbit-toggle.active,.bus-row.selected{background:var(--sage);color:var(--ink);border-color:var(--accent)}
+.card-header h2,.camera-panel h2,.arrival-number,.bus-row b,.loading strong,.modal h2{font-family:inherit;font-weight:600;letter-spacing:-.6px}
+.camera-panel h2{font-size:24px}
+.camera-panel p,.modal p,.loading p,.loading small,.arrival-copy>span,.arrival-copy>small,.arrival-number>span,.fleet-title>span,.bus-row small,.bus-row>svg,.card-foot,.sim-label,.sim-state,.legend,.corridor-note,.trip-seek,.trip-seek small,.scene-readout .eyebrow{color:var(--muted)}
+.camera-panel time,.camera-panel small{color:var(--muted)}
+.camera-observation,.camera-estimate,.trip-seek{border-color:var(--line)}
+.camera-estimate strong{color:#8f4e00}
+.demo-pill{background:#f3e6c5;color:#77511b;border-color:#dfc994;font-size:9px;letter-spacing:.5px}
+.demo-pill i{background:#8f4e00}
+.route-switch{background:var(--paper);border-color:var(--line)}
+.follow-button,.loading button{background:var(--accent);color:var(--surface);font-size:12px;min-height:44px}
+.follow-button:hover,.follow-button.active{background:#345143;color:var(--surface)}
+.inspect-button.active{background:#e5c791;color:#503b1b}
+.progress{background:var(--line)}.progress span{background:var(--accent)}
+.bus-icon{background:var(--sage);color:var(--accent)}
+.fleet-title h3,.bus-row strong,.route-switch button{font-size:12px}
+.card-foot,.bus-row small,.sim-label,.sim-state,.legend,.source-links a{font-size:11px}
+.simulation-bar button{min-width:44px;min-height:44px;justify-content:center}
+.simulation-bar .speed{font-size:12px;background:var(--sage)}
+.divider{border-color:var(--line)}
+.mini-map text{fill:var(--muted)}
+.trip-seek input{accent-color:var(--accent)}
+.gesture,.local-credits{color:var(--muted);background:var(--paper);border-radius:4px;text-shadow:none}
+.gesture{padding:5px 8px}.gesture span{background:var(--muted)}
+.sheet-handle span{background:var(--line)}
+.modal-backdrop{background:#263b3777;backdrop-filter:none}
+.close{min-width:44px;min-height:44px;align-items:center;justify-content:center}
+.loader{border-color:var(--line);border-top-color:var(--accent)}
+@media(max-width:700px){.tracking-switch{top:76px}.camera-panel h2{font-size:20px}}
+@media(max-width:650px){
+ .brand{font-size:21px}.scene-quality{padding:8px}.view-switch{left:12px;max-width:calc(100% - 24px)}
+ .view-switch button{font-size:11px;padding:8px 6px;gap:4px}
+ .map-tools{right:12px;top:208px}.map-tools button,.map-tools .orbit-toggle{height:44px;min-width:44px}
+ .ride-card{background:var(--surface)}.camera-panel{padding:16px}
+ .simulation-bar{bottom:336px;padding:4px;gap:2px}
+ .simulation-bar .speed{font-size:11px}.sim-state{font-size:11px}
+ .camera-panel .card-header .eyebrow{font-size:10px;letter-spacing:.3px}
+ .demo-pill{font-size:9px}.local-credits{font-size:8px}
+}
+.brand{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 12px 7px 7px}
+.camera-panel .card-header .eyebrow{font-size:12px;font-weight:500;letter-spacing:0}
+@media(max-width:650px){.brand{padding:5px 9px 5px 5px}.brand small{letter-spacing:.7px}.scene-quality{display:none}}
