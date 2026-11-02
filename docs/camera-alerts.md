@@ -101,7 +101,7 @@ ssh valley-big-mac 'launchctl print user/$(id -u)/com.valley.bustrackr; launchct
 ssh valley-big-mac 'tail -n 50 ~/apps/bustrackr/logs/com.valley.bustrackr.err.log'
 ```
 
-The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards `bustrackr.valleychristianai.com` and `bustracker.valleychristianai.com` to `127.0.0.1:18787`. The second hostname keeps posted campaign links working without removing their query parameters. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
+The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards `bustrackr.valleychristianai.com` and `bustracker.valleychristianai.com` to the frontend on `127.0.0.1:18788`, which forwards API requests to the single camera worker on `127.0.0.1:18787`. The second hostname keeps posted campaign links working without removing their query parameters. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
 
 To update backend code from the repository root:
 
@@ -188,7 +188,7 @@ Keep credentials, history, and logs outside every website release. Verify both p
 
 The local `valley-big-mac` SSH entry uses `IPQoS none`, a 30-second connection timeout, and automatic connection reuse (`ControlMaster auto`, `ControlPersist 600`, `ControlPath ~/.ssh/cm-%C`). These settings restored responsive access during the November 1 deployment. Authentication and host-key verification remain enabled. The previous SSH configuration was backed up locally before editing. If a tunnel is slow, reuse an authenticated connection rather than opening many parallel SSH handshakes.
 
-The server logs subsequently identified repeated QUIC edge timeouts. Both BusTrackr and SSH now use `protocol: http2` (TCP) in their Cloudflare Tunnel configuration. SSH has a dedicated tunnel, `vcs-ssh` (`47e0adb0-6073-404f-88f8-359a1ea0adb0`), and LaunchAgent `com.cloudflare.vcs-ssh`, rather than sharing the older `vcs-mac-studio` tunnel. Its ingress is `ssh://127.0.0.1:22`; the existing Cloudflare Access login and SSH key checks still apply. The old shared tunnel and its other service routes were left running. Manifests are in `deploy/vcs-ssh.yml` and `deploy/com.cloudflare.vcs-ssh.plist`. Credentials remain only on the Mac.
+The server logs subsequently identified repeated QUIC edge timeouts. The November 1 configuration used `protocol: http2` (TCP) for BusTrackr and SSH. On November 2 the global HTTP/2 BusTrackr connections failed, while a US-region QUIC connector restored public access. BusTrackr now uses `protocol: quic`, `region: us`, and IPv4; SSH retains its separate HTTP/2 configuration. SSH has a dedicated tunnel, `vcs-ssh` (`47e0adb0-6073-404f-88f8-359a1ea0adb0`), and LaunchAgent `com.cloudflare.vcs-ssh`, rather than sharing the older `vcs-mac-studio` tunnel. Its ingress is `ssh://127.0.0.1:22`; the existing Cloudflare Access login and SSH key checks still apply. The old shared tunnel and its other service routes were left running. Manifests are in `deploy/vcs-ssh.yml` and `deploy/com.cloudflare.vcs-ssh.plist`. Credentials remain only on the Mac.
 
 Rollback, if ever needed: route `ssh.valleychristianai.com` back to tunnel `393fc0ab-4a84-460e-9734-adfbe53c6929` from the Mac using its original Cloudflare configuration. Do not stop the dedicated SSH tunnel until the replacement route is verified.
 

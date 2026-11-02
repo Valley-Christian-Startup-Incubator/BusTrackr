@@ -33,7 +33,7 @@ The bare source repository must retain the canonical origin. Fetches target only
 
 Each attempt exports the commit into a separate release directory. It installs the locked root dependencies, builds the React map, and stages the map under `website/BusTrackr`. The build sets `VITE_ALERT_API_URL=/api/shuttle`. It validates HTML references, content-hashed website assets, map resources, and the actual frontend handler before promotion. Build output is private at `deploy-website/build-COMMIT.log`.
 
-The controller inserts a release marker in each HTML document. It probes the public homepage and API before promotion, then verifies the selected release marker on the public pages afterward. A failed post-promotion check restores the previous release. The controller records the failed commit and skips it until a newer commit arrives or an operator runs `deploy --retry`.
+The controller uses a descriptive browser-compatible health-check User-Agent because Cloudflare Browser Integrity Check rejects Python's default User-Agent. The controller inserts a release marker in each HTML document. It probes the public homepage and API before promotion, then verifies the selected release marker on the public pages afterward. A failed post-promotion check restores the previous release. The controller records the failed commit and skips it until a newer commit arrives or an operator runs `deploy --retry`.
 
 A prebuilt website can be published with the same validation and rollback checks. This is useful for an urgent verified artifact. It does not change the watched branch baseline.
 
@@ -70,3 +70,9 @@ python3 scripts/test-deploy-website.py
 ```
 
 The checks use the actual static handler. They exercise continuous requests during adoption and promotion, an in-flight response, retained assets after promotion and rollback, a broken candidate, a failed public probe, interrupted-switch recovery, deployment locking, pause behavior, and source divergence. They do not establish public availability or verify the installed watcher. Verify those on the host after installation.
+
+## Current production layout
+
+The public Cloudflare tunnel routes both hostnames to the stable frontend at `127.0.0.1:18788`. The frontend serves the current website root and streams `/api/*` to the existing camera worker at `127.0.0.1:18787`. The launchd labels are `com.valley.bustrackr.frontend`, `com.valley.bustrackr`, and `com.cloudflare.bustrackr`. Website releases do not reload these jobs.
+
+The retired Vercel backend sources and GitHub Pages deployment workflow have been removed. The self-hosted map is available at `https://bustrackr.valleychristianai.com/BusTrackr/`.

@@ -23,6 +23,7 @@ PUBLIC_URLS = ('https://bustrackr.valleychristianai.com', 'https://bustracker.va
 ASSET = re.compile(r'^.+\.([a-f0-9]{16})\.(css|js)$')
 VITE_ASSET = re.compile(r'^BusTrackr/assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$')
 PAGES = ('index.html', 'privacy.html', 'support.html')
+HEALTH_HEADERS = {'User-Agent': 'Mozilla/5.0 BusTrackr-Deployment-Health/1.0', 'Cache-Control': 'no-cache'}
 
 
 def run(*args, cwd=None):
@@ -234,7 +235,7 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
         for base in self.public_urls if urls is None else urls:
             paths = ('/', '/privacy.html', '/support.html') if commit else ('/', '/api/health')
             for path in paths:
-                request = urllib.request.Request(base.rstrip('/') + path + ('' if path == '/api/health' else '?release_probe=' + uuid.uuid4().hex), headers={'Cache-Control': 'no-cache'})
+                request = urllib.request.Request(base.rstrip('/') + path + ('' if path == '/api/health' else '?release_probe=' + uuid.uuid4().hex), headers=HEALTH_HEADERS)
                 with urllib.request.urlopen(request, timeout=10) as response:
                     body = response.read()
                     if response.status != 200:
@@ -246,7 +247,7 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
         map_root = root / 'BusTrackr'
         if not (map_root / 'index.html').exists():
             return
-        with urllib.request.urlopen(base.rstrip('/') + '/BusTrackr/?release_probe=' + uuid.uuid4().hex, timeout=10) as response:
+        with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + '/BusTrackr/?release_probe=' + uuid.uuid4().hex, headers=HEALTH_HEADERS), timeout=10) as response:
             if f'content="{commit}"'.encode() not in response.read():
                 raise RuntimeError('Map page has not selected the candidate release')
         checks = []
@@ -255,7 +256,7 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             if path:
                 checks.append((path, mime))
         for path, mime in checks:
-            with urllib.request.urlopen(base.rstrip('/') + '/BusTrackr/' + str(path.relative_to(map_root)), timeout=10) as response:
+            with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + '/BusTrackr/' + str(path.relative_to(map_root)), headers=HEALTH_HEADERS), timeout=10) as response:
                 if mime not in response.headers.get('Content-Type', '') or response.read(64).lstrip().lower().startswith(b'<!doctype html'):
                     raise RuntimeError('Map resource has an invalid content type: ' + str(path))
 
