@@ -18,7 +18,9 @@
     "alerts:check": "node --env-file=.env.server server/index.mjs --once",
     "alerts:export": "node server/export-history.mjs",
     "build:mobile-scene": "node scripts/build-mobile-scene.mjs",
-    "check:mobile-scene": "node scripts/build-mobile-scene.mjs --check && node scripts/check-mobile-scene.mjs"
+    "check:mobile-scene": "node scripts/build-mobile-scene.mjs --check && node scripts/check-mobile-scene.mjs",
+    "website:prepare": "node scripts/version-website-assets.mjs",
+    "website:check": "node scripts/version-website-assets.mjs --check"
   },
   "dependencies": {
     "@turf/buffer": "^7.4.0",

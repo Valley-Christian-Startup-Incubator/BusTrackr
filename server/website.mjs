@@ -14,7 +14,7 @@ export async function serveWebsite(req,res,root) {
     if (!file.startsWith(base+sep)) return false;
     const data=await readFile(file);
     res.setHeader('Content-Type',type);res.setHeader('X-Content-Type-Options','nosniff');
-    res.setHeader('Cache-Control','public, max-age=300');res.setHeader('Content-Length',data.length);
+    res.setHeader('Cache-Control',extname(file)==='.html'?'no-store':/\.[a-f0-9]{16}\.(css|js)$/.test(file)?'public, max-age=31536000, immutable':'no-cache');res.setHeader('Content-Length',data.length);
     res.end(req.method==='HEAD'?undefined:data);return true;
   }catch(error){if(['ENOENT','ENOTDIR','EISDIR'].includes(error.code))return false;throw error;}
 }

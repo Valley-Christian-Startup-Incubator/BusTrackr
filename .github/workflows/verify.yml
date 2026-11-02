@@ -21,6 +21,7 @@ jobs:
       - run: npm ci --prefix mobile
       - run: npx playwright install --with-deps chromium
       - run: npm run check:mobile-scene
+      - run: npm run website:check
       - run: npm run test:alerts
       - run: npm run build
       - run: npm --prefix mobile run typecheck

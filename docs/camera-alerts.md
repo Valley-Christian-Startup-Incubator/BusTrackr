@@ -181,6 +181,8 @@ The same worker serves the product website at `https://bustrackr.valleychristian
 Deploy website changes from the repository root:
 
 ```sh
+npm run website:prepare
+npm run website:check
 scp -r website valley-big-mac:apps/bustrackr/
 scp server/index.mjs server/website.mjs valley-big-mac:apps/bustrackr/server/
 ssh valley-big-mac 'launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
@@ -195,3 +197,5 @@ The local `valley-big-mac` SSH entry uses `IPQoS none`, a 30-second connection t
 The server logs subsequently identified repeated QUIC edge timeouts. Both BusTrackr and SSH now use `protocol: http2` (TCP) in their Cloudflare Tunnel configuration. SSH has a dedicated tunnel, `vcs-ssh` (`47e0adb0-6073-404f-88f8-359a1ea0adb0`), and LaunchAgent `com.cloudflare.vcs-ssh`, rather than sharing the older `vcs-mac-studio` tunnel. Its ingress is `ssh://127.0.0.1:22`; the existing Cloudflare Access login and SSH key checks still apply. The old shared tunnel and its other service routes were left running. Manifests are in `deploy/vcs-ssh.yml` and `deploy/com.cloudflare.vcs-ssh.plist`. Credentials remain only on the Mac.
 
 Rollback, if ever needed: route `ssh.valleychristianai.com` back to tunnel `393fc0ab-4a84-460e-9734-adfbe53c6929` from the Mac using its original Cloudflare configuration. Do not stop the dedicated SSH tunnel until the replacement route is verified.
+
+Website CSS and JavaScript use content-hashed filenames. After editing `website/style.css` or `website/site.js`, run `npm run website:prepare` and commit the generated files and updated HTML together. Upload assets before HTML. Keep previously deployed hashed assets available for clients with older documents. HTML is served with `no-store`; versioned assets can be cached immutably without mixing releases.
