@@ -84,6 +84,8 @@ In the mobile app's **Connection settings**, enter `https://bustrackr.valleychri
 
 For the web frontend, copy root `.env.example` to `.env.local`, set `VITE_ALERT_API_URL=https://bustrackr.valleychristianai.com/api/shuttle`, and rebuild/redeploy the frontend. For CI builds, set the variable in that build environment. Both client variables are public; never put Resend credentials in them.
 
+Simple mode shows elapsed minutes since the last sighting without requiring a timetable. Both clients remember the Simple or Map selection. See [notification setup](notifications.md) for optional browser and native push alerts.
+
 A working feed supplies observations. Position estimates also require the confirmed timetable described below; the checked-in schedule is intentionally empty and unconfirmed.
 
 ### Templates, persistence and operations
@@ -99,13 +101,13 @@ ssh valley-big-mac 'launchctl print user/$(id -u)/com.valley.bustrackr; launchct
 ssh valley-big-mac 'tail -n 50 ~/apps/bustrackr/logs/com.valley.bustrackr.err.log'
 ```
 
-The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards only `bustrackr.valleychristianai.com` to `127.0.0.1:18787`. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
+The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards `bustrackr.valleychristianai.com` and `bustracker.valleychristianai.com` to `127.0.0.1:18787`. The second hostname keeps posted campaign links working without removing their query parameters. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
 
 To update backend code from the repository root:
 
 ```sh
 npm run test:alerts
-scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
+scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/notifications.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
 scp deploy/package.json deploy/package-lock.json valley-big-mac:apps/bustrackr/
 ssh valley-big-mac 'cd ~/apps/bustrackr && PATH="$HOME/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin:$PATH" npm ci --omit=dev --ignore-scripts && launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
 ```
@@ -199,3 +201,13 @@ The server logs subsequently identified repeated QUIC edge timeouts. Both BusTra
 Rollback, if ever needed: route `ssh.valleychristianai.com` back to tunnel `393fc0ab-4a84-460e-9734-adfbe53c6929` from the Mac using its original Cloudflare configuration. Do not stop the dedicated SSH tunnel until the replacement route is verified.
 
 Website CSS and JavaScript use content-hashed filenames. After editing `website/style.css` or `website/site.js`, run `npm run website:prepare` and commit the generated files and updated HTML together. Upload assets before HTML. Keep previously deployed hashed assets available for clients with older documents. HTML is served with `no-store`; versioned assets can be cached immutably without mixing releases.
+
+## Website analytics
+
+The website uses the existing self-hosted Umami instance at `https://analytics.bryanhu.com` on SSH host `big-mac`. Its BusTrackr website ID is `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436`. The public website ID is safe to include in HTML. Keep dashboard credentials on the analytics host.
+
+The three HTML pages in `website/` include the tracker. The root React entry HTML also includes it for its next GitHub Pages deployment. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
+
+Run `node scripts/check-analytics.mjs` to verify an accepted browser pageview with a unique verification campaign. Pass a URL as the first argument to check another deployment. The check uses a regular browser user agent because Umami filters headless browser traffic as bots. Confirm the campaign appears in Umami as well. An HTTP 200 response alone does not prove that Umami stored an event.
+
+The Instagram story uses `utm_source=instagram&utm_campaign=simple-bryan-story`. Both public hostnames serve the website. The alias was added to the existing BusTrackr Cloudflare tunnel and DNS without changing the backend.
