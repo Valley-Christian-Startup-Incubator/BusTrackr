@@ -28,7 +28,7 @@
   window.busTrackrBeforeSend = (_type, payload) => ({...payload, url: cleanURL(payload.url, true), referrer: cleanURL(payload.referrer, false)});
   const script = document.createElement('script');
   script.async = true;
-  script.src = 'https://analytics.bryanhu.com/script.js';
+  script.src = 'https://analytics.valleychristianai.com/script.js';
   script.setAttribute('data-website-id', '5eaf2f91-0cd8-48ce-84b1-1cc3244cf436');
   script.setAttribute('data-domains', [...domains].join(','));
   script.setAttribute('data-exclude-hash', 'true');

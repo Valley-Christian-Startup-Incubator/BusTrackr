@@ -196,7 +196,7 @@ Website CSS and JavaScript use content-hashed filenames. After editing `website/
 
 ## Website analytics
 
-The website uses the existing self-hosted Umami instance at `https://analytics.bryanhu.com` on SSH host `big-mac`. Its BusTrackr website ID is `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436`. The public website ID is safe to include in HTML. Keep dashboard credentials on the analytics host.
+The website uses the school-hosted Umami instance at `https://analytics.valleychristianai.com` on SSH host `valley-big-mac`. Its collector and PostgreSQL database run on that host. Its BusTrackr website ID is `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436`. The public website ID is safe to include in HTML. Keep dashboard credentials on the analytics host.
 
 The three HTML pages in `website/` include the tracker. The root React entry HTML includes the same tracker when built into the self-hosted `/BusTrackr/` map. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
 
