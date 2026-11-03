@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#edf0e9">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.947c4677047a736b.css">
-  <script defer src="analytics.968db2ceb7e11f46.js"></script>
+  <script defer src="analytics.0e68a29a2cbf9404.js"></script>
 </head>
 <body>
   <a data-analytics="skip_main" class="skip" href="#main">Skip to content</a>
@@ -26,8 +26,8 @@
     <div class="doc-head">
       <div class="wrap">
         <h1>Privacy</h1>
-        <p class="lede">BusTrackr has no accounts or ads. The website and web app use self-hosted analytics to measure visits, control interactions and campaign links. The native apps contain no analytics SDK.</p>
-        <p class="small muted">Last updated November 2, 2026. This page describes the current app source. Push notifications require a configured deployment.</p>
+        <p class="lede">BusTrackr has no accounts or ads. The website and web app use self-hosted analytics to measure visits, control interactions and campaign links, with sampled session replays and heatmaps. The native apps contain no analytics SDK.</p>
+        <p class="small muted">Last updated November 3, 2026. This page describes the current app source. Push notifications require a configured deployment.</p>
       </div>
     </div>
 
@@ -46,13 +46,19 @@
 
       <section>
         <h2>This website</h2>
-        <p>This site sets no analytics cookies. It loads Umami from our self-hosted server at <code>analytics.valleychristianai.com</code> to count page views, button and link clicks, committed slider changes, notification outcomes and campaign links, including Instagram story links. Events use fixed control names and categories. We do not send input text, feed contents, coordinates or notification subscription credentials to analytics. Page URLs retain only the five standard UTM campaign parameters; referring URLs exclude queries and fragments. Analytics also includes browser, device and approximate location derived from the request. Do not put personal information in campaign parameters.</p>
-        <p>A random identifier saved in browser localStorage distinguishes anonymous browser profiles, including browsers sharing a school network. Counts are per browser profile and origin, not identified people or cross-device users. Clearing storage or using private browsing starts a new profile. We do not enable session recording. The home page also requests <code>/api/shuttle</code> from this same server once per page load to show feed status.</p>
+        <p>This site sets no analytics cookies. It loads Umami from our self-hosted server at <code>analytics.valleychristianai.com</code> to count page views, button and link clicks, committed slider changes, notification outcomes and campaign links, including Instagram story links. Events use fixed control names and categories. Control events do not send input text, feed contents, geographic coordinates or notification subscription credentials to analytics. Pageview and control-event URLs retain only the five standard UTM campaign parameters; referring URLs exclude queries and fragments. Analytics also includes browser, device and approximate location derived from the request. Do not put personal information in campaign parameters.</p>
+        <p>A random identifier saved in browser localStorage distinguishes anonymous browser profiles, including browsers sharing a school network. Counts are per browser profile and origin, not identified people or cross-device users. Clearing storage or using private browsing starts a new profile. We enable sampled session replays and heatmaps as described below. The home page also requests <code>/api/shuttle</code> from this same server to show feed status. While the page is visible, it refreshes every 30 seconds after success and retries failed requests with a delay. It pauses these scheduled requests while hidden and refreshes when you return or reconnect.</p>
+      </section>
+
+      <section>
+        <h2>Session replays and heatmaps</h2>
+        <p>Our school-hosted Umami recorder independently samples 15% of page loads for replays and 15% for click and scroll heatmaps. Replays record page structure and changes, pointer movement, clicks, scrolling and navigation for up to five minutes per page. Sampled heatmaps collect click positions and scroll depth while the page remains open. Page text and input values are masked. Camera observations, estimates and feed-status details are excluded. The 3D canvas is not recorded. Public page attributes and navigation links can still appear. Replays and heatmaps link to the same anonymous browser-profile identifier used by the other analytics. These records are available to the school analytics administrator. Replay retention depends on the school server's cleanup configuration.</p>
+        <p>The recorder starts only when the page URL matches our allowed campaign-only URL format. Pages with other query parameters or fragments at recorder startup are skipped. Later navigation URLs and fragments may appear in recordings. Do not put personal information or credentials in URLs. Session replays apply to new sampled page loads, not past visits. Set <code>umami.disabled</code> in browser localStorage, then reload, to disable both analytics and the recorder.</p>
       </section>
 
       <section>
         <h2>The 3D web app</h2>
-        <p>The web app is hosted with this website on our server. Requests pass through Cloudflare under the privacy policy linked below. It also loads fonts from Google Fonts, so Google can see your IP address under the <a data-analytics="policy_google" href="https://policies.google.com/privacy">Google privacy policy</a>. The web app uses the same self-hosted Umami analytics described above, without analytics cookies or session recording.</p>
+        <p>The web app is hosted with this website on our server. Requests pass through Cloudflare under the privacy policy linked below. It also loads fonts from Google Fonts, so Google can see your IP address under the <a data-analytics="policy_google" href="https://policies.google.com/privacy">Google privacy policy</a>. The web app uses the same self-hosted Umami analytics described above, without analytics cookies and with the same sampled replays and heatmaps.</p>
       </section>
 
       <section>
