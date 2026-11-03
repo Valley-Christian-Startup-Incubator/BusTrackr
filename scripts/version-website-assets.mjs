@@ -3,8 +3,12 @@ import {readFile, writeFile} from 'node:fs/promises';
 const root = new URL('../website/',import.meta.url);
 const check = process.argv.includes('--check');
 const replacements = [];
-for (const name of ['style.css','site.js']) {
-  const bytes = await readFile(new URL(name,root));
+for (const name of ['style.css','site.js','analytics.js']) {
+  const bytes = await readFile(name === 'analytics.js' ? new URL('../public/analytics.js', import.meta.url) : new URL(name,root));
+  if (name === 'analytics.js') {
+    if (check && !bytes.equals(await readFile(new URL(name,root)))) throw new Error('Stale analytics.js');
+    if (!check) await writeFile(new URL(name,root),bytes);
+  }
   const dot = name.lastIndexOf('.');
   const versioned = `${name.slice(0,dot)}.${createHash('sha256').update(bytes).digest('hex').slice(0,16)}${name.slice(dot)}`;
   if (check) {
