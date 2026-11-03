@@ -8,7 +8,7 @@ import {defaultSource, loadSource, saveSource} from '../shuttle/settings';
 import {scenarios, type Source} from '../shuttle/samples';
 import {useShuttle} from '../shuttle/useShuttle';
 import {colors, styles as s} from '../styles';
-import {observationAge} from '../shuttle/observation';
+import {observationAge, relativeObservationTime} from '../shuttle/observation';
 import {NotificationControl} from '../notifications/NotificationControl';
 
 const SceneMap = lazy(() => import('../map/SceneMap').then(module => ({default: module.SceneMap})));
@@ -24,13 +24,9 @@ const messages = {
   scheduled: {title: 'Waiting for the next run', body: 'This is a timetable time, not an observed arrival.'},
 };
 function ageLabel(minutes: number) {
-  if (minutes < 0) return 'Camera clock is ahead';
-  if (minutes === 0) return 'Less than a minute ago';
-  if (minutes < 60) return `${minutes} min ago`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ago`;
-  const days = Math.floor(minutes / 1440);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  return minutes < 0 ? 'Camera clock is ahead' : relativeObservationTime(minutes).label;
 }
+
 function Icon({kind, color = colors.ink, size = 24}: {kind: 'bus' | 'camera' | 'settings' | 'refresh'; color?: string; size?: number}) {
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" accessible={Platform.OS === 'web' ? undefined : false} aria-hidden={true}>
     {kind === 'bus' ? <><Rect x={5} y={3} width={14} height={16} rx={3}/><Path d="M5 11h14M8 19v2m8-2v2M8 15h1m6 0h1M9 6h6"/></> :
@@ -74,8 +70,9 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
   const sample = source.kind === 'sample' || feed?.status === 'sample';
   const observation = feed?.latest;
   const age = observationAge(observation?.eventAt, now);
-  const minuteText = age.kind === 'observed' ? age.minutes.toLocaleString() : '';
-  const fittedNumeralSize = Math.min(numeralSize, (Math.min(width, 620) - 48) / Math.max(1, minuteText.length * .62));
+  const relativeTime = age.kind === 'observed' ? relativeObservationTime(age.minutes) : null;
+  const relativeValue = relativeTime?.value ?? '';
+  const fittedNumeralSize = Math.min(numeralSize, (Math.min(width, 620) - 48) / Math.max(1, relativeValue.length * .62));
   const observationOffline = view.kind === 'unavailable' || view.kind === 'stale' || view.kind === 'loading';
   const status = view.kind === 'loading' ? 'Checking feed' : view.kind === 'unavailable' ? 'Feed unavailable' : view.kind === 'stale' ? 'Feed is stale' : sample ? 'Illustrative data' : 'Feed connected';
   const statusColor = view.kind === 'loading' ? colors.muted : view.kind === 'unavailable' || view.kind === 'stale' ? colors.error : sample ? colors.amber : colors.teal;
@@ -100,9 +97,8 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
       <View style={s.simpleReading}>
         <Text accessibilityRole="header" style={s.simpleLead}>The last Fehren bus was detected</Text>
         {age.kind === 'observed' ? <>
-          <Text testID="observation-minutes" accessibilityLabel={`${age.minutes.toLocaleString()} ${age.minutes === 1 ? 'minute' : 'minutes'} ago`} style={[s.simpleNumber, {fontSize: fittedNumeralSize, lineHeight: fittedNumeralSize * 1.1, color: observationOffline ? colors.muted : age.color}]} allowFontScaling={false} numberOfLines={1}>{minuteText}</Text>
-          <Text style={s.simpleUnit}>{age.minutes === 1 ? 'minute ago' : 'minutes ago'}</Text>
-          {age.minutes === 0 && <Text style={s.simpleNote}>Less than a minute ago</Text>}
+          <Text testID="observation-age" accessibilityLabel={relativeTime!.label} style={[s.simpleNumber, {fontSize: fittedNumeralSize, lineHeight: fittedNumeralSize * 1.1, color: observationOffline ? colors.muted : age.color}]} allowFontScaling={false} numberOfLines={1}>{relativeValue}</Text>
+          <Text style={s.simpleUnit}>{relativeTime!.unit} ago</Text>
           <Text style={s.simpleNote}>{pacificTime(observation!.eventAt!)} · {observation!.checkpoint}</Text>
         </> : <Text style={s.simpleEmpty}>{age.kind === 'clock-error' ? 'Camera time is ahead. Waiting for a valid sighting.' : view.kind === 'loading' ? 'Checking the feed…' : observation ? 'Camera time unavailable' : 'No detections yet'}</Text>}
       </View>

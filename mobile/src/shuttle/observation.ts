@@ -15,3 +15,19 @@ export function observationAge(eventAt: string | null | undefined, now: number):
     Math.round(channel + (stops[index + 1][i] - channel) * ratio).toString(16).padStart(2, '0')).join('');
   return {kind: 'observed', minutes: Math.floor(elapsed), color};
 }
+
+export function relativeObservationTime(minutes: number): {value: string; unit: string; label: string} {
+  if (minutes < 1) return {value: '<1', unit: 'minute', label: 'Less than a minute ago'};
+  const units = [
+    {minutes: 525600, name: 'year'},
+    {minutes: 43200, name: 'month'},
+    {minutes: 1440, name: 'day'},
+    {minutes: 60, name: 'hour'},
+    {minutes: 1, name: 'minute'},
+  ];
+  const scale = units.find(unit => minutes >= unit.minutes)!;
+  const count = Math.floor(minutes / scale.minutes);
+  const value = count.toLocaleString('en-US');
+  const unit = scale.name + (count === 1 ? '' : 's');
+  return {value, unit, label: `${value} ${unit} ago`};
+}
