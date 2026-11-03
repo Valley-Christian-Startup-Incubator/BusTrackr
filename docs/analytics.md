@@ -31,15 +31,17 @@ Tracking uses capture listeners and never waits before UI actions or navigation.
 
 ## Replays and heatmaps
 
-The school-hosted recorder captures sampled DOM changes, pointer movement, clicks, scrolling and navigation for replays and click or scroll heatmaps. Both features currently sample 15% of sessions independently. Replays have a five-minute recording limit; heatmap collection continues while the page remains open. Only new sessions can be recorded; historical visits are not reconstructed. Replay retention depends on the school server's cleanup configuration.
+The school-hosted recorder captures sampled DOM changes, pointer movement, clicks, scrolling and navigation for replays and click or scroll heatmaps. Both features currently sample 15% of page loads independently. Each sampled page can record up to five minutes of replay; heatmap collection continues while the page remains open. Only new page loads can be recorded; historical visits are not reconstructed. Replay retention depends on the school server's cleanup configuration.
 
 The server uses strict masking for page text and input values. Its block selector excludes camera observations and estimates, feed-status details, and the 3D canvas. Canvas recording is disabled by the recorder itself, so replays show the surrounding interface rather than the rendered 3D scene. DOM attributes and public navigation links can still appear in snapshots. Keep credentials and personal data out of page attributes and links.
 
 The recorder does not support the tracker's before-send sanitizer. The bootstrap starts it only when the current page URL equals the sanitized URL, so unknown query parameters, fragments, oversized campaigns and noncanonical campaign encoding skip recording on that document. It does not change the visitor's URL. Later navigation URLs and fragments may appear in recordings and heatmaps. The event URL sanitization described above continues to apply to pageviews and control events.
 
-Sampling means an individual visit can produce ordinary analytics without a replay or heatmap. Opening a replay requires the school analytics account. Native apps do not load the recorder.
+Sampling means an individual visit can produce ordinary analytics without a replay or heatmap. Replays and heatmaps use the tracker's session cache and link to the same anonymous browser-profile UUID described above. Opening a replay requires the school analytics account. Native apps do not load the recorder.
 
 ## Inspect and verify
+
+Before and after deployment, run `node scripts/check-recorder-settings.mjs`. This manual operational check reads the school collector's public recorder configuration and verifies the enabled features, sample rates, strict masking, replay duration and required block selectors. It also checks that the blocked IDs and classes still exist in the website or app source. The check makes a live network request, so it is not part of CI. Stored public replay and heatmap data must still be verified separately.
 
 In the Umami dashboard, select BusTrackr and a date range. Visitors show browser-profile reach; pageviews show page traffic. Filter Events by `ui_click`, then inspect `control` and `surface` properties for individual controls. Use notification outcome events for completed setup rather than counting Notify me clicks. Mounting an already-enabled subscription never emits an enable conversion. Campaign reports show Instagram attribution, including `utm_campaign=simple-bryan-story`.
 
