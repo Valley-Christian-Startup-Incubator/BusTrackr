@@ -19,7 +19,7 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const local = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({headless:true, args:['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
-async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0} = {}) {
+async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0, staleBootstrap=false} = {}) {
   const context = await browser.newContext({viewport:{width:1280,height:900}, userAgent:'BusTrackrAnalyticsCheck/1'});
   const events = [], errors = [], subscriptions = [];
   if (cryptoFailure) await context.addInitScript(() => {Object.defineProperty(crypto,'randomUUID',{value:()=>{throw new Error('disabled');}});Object.defineProperty(crypto,'getRandomValues',{value:()=>{throw new Error('disabled');}});});
@@ -49,6 +49,7 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
       return route.fulfill({contentType:'application/json', body:'{"cache":"check"}'});
     }
     if (url.origin === origin) {
+      if (staleBootstrap && url.pathname === '/BusTrackr/analytics.js' && !url.search) return route.fulfill({contentType:'text/javascript',body:'window.legacyAnalyticsBootstrap=true;'});
       if (/\/assets\/world-[^/]+\.js$/.test(url.pathname)) return route.fulfill({contentType:'text/javascript',body:`export function createWorld(host, notify) {notify({progress:[.9,.16,.44],distance:[2400,2400],fps:0,selected:0,loaded:true,pending:0,mode:'campus',speedMph:0,location:'SKYWAY CAMPUS'});return new Proxy({}, {get:(_target,key)=>key==='then'?undefined:()=>{}});}`});
       if (notifications && url.pathname.endsWith('/notifications/config')) return route.fulfill({contentType:'application/json',body:JSON.stringify({webPushPublicKey:'AQID'})});
       if (notifications && url.pathname.endsWith('/notifications/subscriptions')) {subscriptions.push(route.request().method());return route.fulfill({status:failSubscription?503:200,body:'{}'});}
@@ -97,6 +98,13 @@ try {
   await a.page.locator('[data-analytics="feed_refresh"]').focus();await a.page.keyboard.press('Enter');
   await waitForCollection(()=>clicks(a.events,'feed_refresh').length>=1);assert.equal(clicks(a.events,'feed_refresh').length,1);
   console.log('Native identity and static pages passed.');
+  const returning=await setup({staleBootstrap:true});await returning.page.goto(origin+'/BusTrackr/');
+  await returning.page.locator('.simple-screen').waitFor();
+  await waitForCollection(()=>pageviews(returning.events).length>=1);
+  assert.equal(await returning.page.evaluate(()=>window.legacyAnalyticsBootstrap),undefined,'Returning browser does not reuse the cached pre-migration bootstrap');
+  await returning.page.locator('[data-analytics="feed_refresh"]').click();
+  await waitForCollection(()=>clicks(returning.events,'feed_refresh').length>=1);
+  assert.deepEqual(returning.errors,[]);
   await a.page.locator('[data-analytics="mode_map"]').click();
   await a.page.locator('[data-analytics="about_open"]').waitFor().catch(async e=>{console.error(await a.page.locator('body').innerText());throw e;});await audit(a.page);
   await a.page.locator('[data-analytics="about_open"] svg').click();

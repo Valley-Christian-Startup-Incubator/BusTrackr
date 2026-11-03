@@ -15,6 +15,17 @@ for (const name of ['style.css','site.js','analytics.js']) {
     const actual = await readFile(new URL(versioned,root));
     if (!bytes.equals(actual)) throw new Error(`Stale ${versioned}`);
   } else await writeFile(new URL(versioned,root),bytes);
+  if (name === 'analytics.js') {
+    const asset = new URL(`../public/${versioned}`,import.meta.url);
+    if (check) {
+      if (!bytes.equals(await readFile(asset))) throw new Error(`Stale public/${versioned}`);
+    } else await writeFile(asset,bytes);
+    const entry = new URL('../index.html',import.meta.url), html = await readFile(entry,'utf8');
+    const next = html.replace(/(["'])\/analytics(?:\.[a-f0-9]+)?\.js\1/g,`"/${versioned}"`);
+    if (!next.includes(`"/${versioned}"`)) throw new Error('Missing app analytics bootstrap');
+    if (check && next !== html) throw new Error('Run npm run website:prepare: app analytics URL is stale');
+    if (!check) await writeFile(entry,next);
+  }
   replacements.push({name,versioned});
 }
 for (const name of ['index.html','support.html','privacy.html']) {
