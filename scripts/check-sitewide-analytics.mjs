@@ -19,9 +19,9 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const local = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({headless:true, args:['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
-async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0, staleBootstrap=false, recorderDelayed=false, recorderBlocked=false} = {}) {
+async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0, staleBootstrap=false, recorderDelayed=false, recorderBlocked=false, heroDelayed=false} = {}) {
   const context = await browser.newContext({viewport:{width:1280,height:900}, userAgent:'BusTrackrAnalyticsCheck/1'});
-  const events = [], errors = [], subscriptions = [], recorders = [];
+  const events = [], errors = [], subscriptions = [], recorders = [], heroRequests = [];
   if (cryptoFailure) await context.addInitScript(() => {Object.defineProperty(crypto,'randomUUID',{value:()=>{throw new Error('disabled');}});Object.defineProperty(crypto,'getRandomValues',{value:()=>{throw new Error('disabled');}});});
   if (optedOut) await context.addInitScript(() => localStorage.setItem('umami.disabled', '1'));
   if (notifications) await context.addInitScript(() => {
@@ -55,6 +55,7 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
       return route.fulfill({contentType:'application/json', body:'{"cache":"check"}'});
     }
     if (url.origin === origin) {
+      if (heroDelayed && url.pathname === '/assets/scene-campus.png') {heroRequests.push(url.href);await gate;}
       if (staleBootstrap && url.pathname === '/BusTrackr/analytics.js' && !url.search) return route.fulfill({contentType:'text/javascript',body:'window.legacyAnalyticsBootstrap=true;'});
       if (/\/assets\/world-[^/]+\.js$/.test(url.pathname)) return route.fulfill({contentType:'text/javascript',body:`export function createWorld(host, notify) {notify({progress:[.9,.16,.44],distance:[2400,2400],fps:0,selected:0,loaded:true,pending:0,mode:'campus',speedMph:0,location:'SKYWAY CAMPUS'});return new Proxy({}, {get:(_target,key)=>key==='then'?undefined:()=>{}});}`});
       if (notifications && url.pathname.endsWith('/notifications/config')) return route.fulfill({contentType:'application/json',body:JSON.stringify({webPushPublicKey:'AQID'})});
@@ -66,7 +67,7 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
     return route.abort();
   });
   const page=await context.newPage();page.on('pageerror', e=>{errors.push(e.message);console.error('Browser error',e.message);});
-  return {context,page,events,errors,release,subscriptions,recorders};
+  return {context,page,events,errors,release,subscriptions,recorders,heroRequests};
 }
 const pageviews = events => events.filter(e => e.type === 'event' && !e.payload.name);
 const clicks = (events, control) => events.filter(e => e.payload.name === 'ui_click' && e.payload.data.control === control);
@@ -82,6 +83,18 @@ async function audit(page) {
   assert.deepEqual(await page.locator('button,a,input[type=range],select').evaluateAll(elements=>elements.filter(e=>!e.hasAttribute('data-analytics')).map(e=>e.outerHTML)), [], 'All rendered controls have stable metadata');
 }
 try {
+  const stalledHero=await setup({heroDelayed:true});
+  try {
+    await stalledHero.page.goto(origin+'/',{waitUntil:'domcontentloaded'});
+    await waitForCollection(()=>stalledHero.heroRequests.length===1&&stalledHero.recorders.length===1);
+    await stalledHero.page.waitForFunction(()=>document.readyState==='complete',null,{timeout:5000});
+    assert.equal(await stalledHero.page.locator('img[src="assets/scene-campus.png"]').evaluate(image=>image.complete),false,'Hero request remains pending after document completion');
+    await stalledHero.page.locator('[data-analytics="nav_sightings"]').click();
+    await waitForCollection(()=>clicks(stalledHero.events,'nav_sightings').length>=1);
+    assert.equal(clicks(stalledHero.events,'nav_sightings').length,1,'Navigation remains usable while hero image is pending');
+    assert.equal(new URL(stalledHero.page.url()).hash,'#sighting');
+    assert.deepEqual(stalledHero.errors,[]);
+  } finally {stalledHero.release();await stalledHero.context.unrouteAll({behavior:'wait'});await stalledHero.context.close();}
   const a=await setup();
   await a.page.goto(origin+'/?utm_source=instagram&utm_campaign=simple-bryan-story&secret=private#hidden');
   await a.page.waitForFunction(()=>!!window.umami);
