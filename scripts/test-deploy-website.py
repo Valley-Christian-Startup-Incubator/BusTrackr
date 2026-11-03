@@ -32,6 +32,9 @@ class WebsiteDeploymentTests(unittest.TestCase):
         self.git('config', 'user.name', 'Deployment test')
         (self.source / 'scripts').mkdir()
         shutil.copy2(HERE / 'version-website-assets.mjs', self.source / 'scripts/version-website-assets.mjs')
+        (self.source / 'public').mkdir()
+        shutil.copy2(HERE.parent / 'public/analytics.js', self.source / 'public/analytics.js')
+        (self.source / 'index.html').write_text('<html><head><script defer src="/analytics.js"></script></head><body></body></html>')
         self.write_site('first')
         self.first = self.commit()
         self.root.mkdir()
@@ -75,7 +78,7 @@ const worker=createServer((req,res)=>{
         for name, content in [('style.css', 'body{color:' + value + '}'), ('site.js', 'globalThis.release="' + value + '";')]:
             (root / name).write_text(content)
         for name in module.PAGES:
-            (root / name).write_text('<!doctype html><html><head><link href="style.css" rel="stylesheet"></head><body>' + value + '<script src="site.js"></script></body></html>')
+            (root / name).write_text('<!doctype html><html><head><link href="style.css" rel="stylesheet"><script src="analytics.js"></script></head><body>' + value + '<script src="site.js"></script></body></html>')
         module.run('node', str(self.source / 'scripts/version-website-assets.mjs'))
 
     def request(self, path='/'):

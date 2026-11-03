@@ -8,16 +8,16 @@
   <meta name="theme-color" content="#edf0e9">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.947c4677047a736b.css">
-  <script defer src="https://analytics.bryanhu.com/script.js" data-website-id="5eaf2f91-0cd8-48ce-84b1-1cc3244cf436" data-domains="bustrackr.valleychristianai.com,bustracker.valleychristianai.com,thatxliner.github.io,valley-christian-startup-incubator.github.io" data-exclude-hash="true"></script>
+  <script defer src="analytics.0e68a29a2cbf9404.js"></script>
 </head>
 <body>
-  <a class="skip" href="#main">Skip to content</a>
+  <a data-analytics="skip_main" class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="index.html">BusTrackr</a>
+      <a data-analytics="home" class="brand" href="index.html">BusTrackr</a>
       <nav class="site-nav" aria-label="Main">
-        <a href="support.html">Support</a>
-        <a class="button" href="/">Open web app</a>
+        <a data-analytics="nav_support" href="support.html">Support</a>
+        <a data-analytics="open_map" class="button" href="/">Open web app</a>
       </nav>
     </div>
   </header>
@@ -26,8 +26,8 @@
     <div class="doc-head">
       <div class="wrap">
         <h1>Privacy</h1>
-        <p class="lede">BusTrackr has no accounts or ads. The website and web app use self-hosted analytics to measure visits and campaign links. The native apps contain no analytics SDK.</p>
-        <p class="small muted">Last updated November 2, 2026. This page describes the current app source. Push notifications require a configured deployment.</p>
+        <p class="lede">BusTrackr has no accounts or ads. The website and web app use self-hosted analytics to measure visits, control interactions and campaign links, with sampled session replays and heatmaps. The native apps contain no analytics SDK.</p>
+        <p class="small muted">Last updated November 3, 2026. This page describes the current app source. Push notifications require a configured deployment.</p>
       </div>
     </div>
 
@@ -46,22 +46,29 @@
 
       <section>
         <h2>This website</h2>
-        <p>This site sets no analytics cookies. It loads Umami from our self-hosted server at <code>analytics.bryanhu.com</code> to count page views and measure campaign links, including Instagram story links. Analytics includes the page URL and its campaign parameters, referring page, browser, device and approximate location derived from the request. Do not put personal information in link parameters. We do not enable session recording. The home page also requests <code>/api/shuttle</code> from this same server while the page is visible to show feed status and retry temporary connection failures.</p>
+        <p>This site sets no analytics cookies. It loads Umami from our self-hosted server at <code>analytics.valleychristianai.com</code> to count page views, button and link clicks, committed slider changes, notification outcomes and campaign links, including Instagram story links. Events use fixed control names and categories. Control events do not send input text, feed contents, geographic coordinates or notification subscription credentials to analytics. Pageview and control-event URLs retain only the five standard UTM campaign parameters; referring URLs exclude queries and fragments. Analytics also includes browser, device and approximate location derived from the request. Do not put personal information in campaign parameters.</p>
+        <p>A random identifier saved in browser localStorage distinguishes anonymous browser profiles, including browsers sharing a school network. Counts are per browser profile and origin, not identified people or cross-device users. Clearing storage or using private browsing starts a new profile. We enable sampled session replays and heatmaps as described below. The home page also requests <code>/api/shuttle</code> from this same server to show feed status. While the page is visible, it refreshes every 30 seconds after success and retries failed requests with a delay. It pauses these scheduled requests while hidden and refreshes when you return or reconnect.</p>
+      </section>
+
+      <section>
+        <h2>Session replays and heatmaps</h2>
+        <p>Our school-hosted Umami recorder independently samples 15% of page loads for replays and 15% for click and scroll heatmaps. Replays record page structure and changes, pointer movement, clicks, scrolling and navigation for up to five minutes per page. Sampled heatmaps collect click positions and scroll depth while the page remains open. Page text and input values are masked. Camera observations, estimates and feed-status details are excluded. The 3D canvas is not recorded. Public page attributes and navigation links can still appear. Replays and heatmaps link to the same anonymous browser-profile identifier used by the other analytics. These records are available to the school analytics administrator. Replay retention depends on the school server's cleanup configuration.</p>
+        <p>The recorder starts only when the page URL matches our allowed campaign-only URL format. Pages with other query parameters or fragments at recorder startup are skipped. Later navigation URLs and fragments may appear in recordings. Do not put personal information or credentials in URLs. Session replays apply to new sampled page loads, not past visits. Set <code>umami.disabled</code> in browser localStorage, then reload, to disable both analytics and the recorder.</p>
       </section>
 
       <section>
         <h2>The 3D web app</h2>
-        <p>The web app is hosted with this website on our server. Requests pass through Cloudflare under the privacy policy linked below. It also loads fonts from Google Fonts, so Google can see your IP address under the <a href="https://policies.google.com/privacy">Google privacy policy</a>. The web app uses the same self-hosted Umami analytics described above, without analytics cookies or session recording.</p>
+        <p>The web app is hosted with this website on our server. Requests pass through Cloudflare under the privacy policy linked below. It also loads fonts from Google Fonts, so Google can see your IP address under the <a data-analytics="policy_google" href="https://policies.google.com/privacy">Google privacy policy</a>. The web app uses the same self-hosted Umami analytics described above, without analytics cookies and with the same sampled replays and heatmaps.</p>
       </section>
 
       <section>
         <h2>The status server</h2>
-        <p>Requests to this site and to <code>/api/shuttle</code> reach the server through Cloudflare, which handles them under the <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>. The status server does not log individual requests or store visitor analytics. The separate Umami server stores the visit analytics described above.</p>
+        <p>Requests to this site and to <code>/api/shuttle</code> reach the server through Cloudflare, which handles them under the <a data-analytics="policy_cloudflare" href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>. The status server does not log individual requests or store visitor analytics. The separate Umami server stores the visit analytics described above.</p>
       </section>
 
       <section>
         <h2>Camera alerts</h2>
-        <p>A camera at the checkpoint emails an alert when a bus enters its zone. <a href="https://resend.com/legal/privacy-policy">Resend</a> receives those emails and notifies the server, which reads each message and keeps only:</p>
+        <p>A camera at the checkpoint emails an alert when a bus enters its zone. <a data-analytics="policy_resend" href="https://resend.com/legal/privacy-policy">Resend</a> receives those emails and notifies the server, which reads each message and keeps only:</p>
         <ul>
           <li>the camera's event time, the email's date, the time the email arrived, and the checkpoint name</li>
           <li>a hash of the email's message ID, plus receipt and delivery IDs, used to skip duplicates and retries</li>
@@ -79,7 +86,7 @@
 
       <section>
         <h2>Questions and changes</h2>
-        <p>Ask about this page in <a href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/issues">GitHub issues</a>. Issues are public, so leave out anything personal. Changes to this page appear in the repository's commit history.</p>
+        <p>Ask about this page in <a data-analytics="privacy_questions" href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/issues">GitHub issues</a>. Issues are public, so leave out anything personal. Changes to this page appear in the repository's commit history.</p>
       </section>
     </div>
   </main>
@@ -88,12 +95,12 @@
     <div class="wrap">
       <p class="monument" aria-hidden="true"><span>BusTrackr</span></p>
       <nav class="footer-links" aria-label="Footer">
-        <a href="index.html">Home</a>
-        <a href="privacy.html" aria-current="page">Privacy</a>
-        <a href="support.html">Support</a>
-        <a href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
+        <a data-analytics="footer_home" href="index.html">Home</a>
+        <a data-analytics="footer_privacy" href="privacy.html" aria-current="page">Privacy</a>
+        <a data-analytics="footer_support" href="support.html">Support</a>
+        <a data-analytics="footer_github" href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
       </nav>
-      <p class="credits">© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+      <p class="credits">© <a data-analytics="credits_osm" href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
     </div>
   </footer>
   <script src="site.3e837ac6a9c78e81.js"></script>

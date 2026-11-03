@@ -105,11 +105,13 @@ export function WebNotifications({sample = false}: {sample?: boolean}) {
         if (results.some(result => result.status === 'rejected')) throw new Error('Could not finish turning off notifications. Please try again.');
         localStorage.removeItem(storageKey);
         setState('off'); setMessage('Notifications are off.');
+        window.BusTrackrAnalytics?.track('notification_disabled');
         return;
       }
       if (!publicKey) throw new Error('Notifications are not set up on this feed yet.');
       const permissionRequest = Notification.requestPermission();
       const permission = await permissionRequest;
+      window.BusTrackrAnalytics?.track('notification_permission', permission);
       if (permission !== 'granted') {setState(permission === 'denied' ? 'denied' : 'off'); setMessage(permission === 'denied' ? 'Notifications are blocked. Allow them in your browser settings.' : 'Notifications are off.'); return;}
       saveRegistration(registration);
       await navigator.serviceWorker.register(import.meta.env.BASE_URL + 'notifications-sw.js', {scope: import.meta.env.BASE_URL});
@@ -118,8 +120,10 @@ export function WebNotifications({sample = false}: {sample?: boolean}) {
       registrationAttempted = true;
       await updateSubscription('POST', {id: registration.id, secret: registration.secret, target: {kind: 'web', ...subscription.toJSON()}});
       saveRegistration({...registration, enabled: true});
+      window.BusTrackrAnalytics?.track('notification_enabled');
       setState('on'); setMessage('You will be notified when a new bus sighting arrives.');
     } catch (error) {
+      window.BusTrackrAnalytics?.track('notification_failure', disabling ? 'disable' : 'enable');
       setState(disabling ? 'cleanup' : registrationAttempted ? 'unconfirmed' : 'off');
       setMessage(friendlyError(error, 'Could not change notifications. Please try again.'));
     } finally {
@@ -128,8 +132,8 @@ export function WebNotifications({sample = false}: {sample?: boolean}) {
   }
   const label = state === 'unconfirmed' ? 'Retry enabling' : state === 'on' ? 'Notifications on' : state === 'busy' ? 'Saving notifications…' : state === 'cleanup' ? 'Finish turning off' : state === 'retry' ? 'Check notifications' : state === 'unavailable' || state === 'denied' ? 'Notifications unavailable' : 'Notify me';
   return <div className="notification-control">
-    <button type="button" onClick={() => void toggle()} disabled={['checking', 'busy', 'unavailable', 'denied'].includes(state)} aria-pressed={state === 'on'}>{label}</button>
-    {state === 'unconfirmed' && <button type="button" onClick={() => void toggle(true)}>Cancel notification setup</button>}
+    <button data-analytics="notifications_toggle" type="button" onClick={() => void toggle()} disabled={['checking', 'busy', 'unavailable', 'denied'].includes(state)} aria-pressed={state === 'on'}>{label}</button>
+    {state === 'unconfirmed' && <button data-analytics="notifications_cancel" type="button" onClick={() => void toggle(true)}>Cancel notification setup</button>}
     <p role="status">{message}</p>
   </div>;
 }

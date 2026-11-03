@@ -13,8 +13,11 @@ self.addEventListener('notificationclick', event => {
   const destination = self.registration.scope;
   event.waitUntil(self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(async clients => {
     for (const client of clients) {
-      if (client.url.startsWith(destination) && 'focus' in client) return client.focus();
+      if (client.url.startsWith(destination) && 'focus' in client) {
+        try {client.postMessage({type: 'bustrackr_notification_open'});} catch {}
+        return client.focus();
+      }
     }
-    return self.clients.openWindow(destination);
+    return self.clients.openWindow(destination + '?notification_open=1');
   }));
 });

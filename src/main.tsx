@@ -1,4 +1,4 @@
-import {lazy, Suspense, useState} from 'react';
+import {lazy, Suspense, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
 import {useCameraFeed, type CameraFeed} from './useCameraFeed';
@@ -13,8 +13,8 @@ function initialMode(): Mode {
 }
 function ModeControl({mode, onChange}: {mode: Mode; onChange: (mode: Mode) => void}) {
   return <div className="mode-control" role="group" aria-label="Display mode">
-    <button type="button" aria-pressed={mode === 'simple'} onClick={() => onChange('simple')}>Simple</button>
-    <button type="button" aria-pressed={mode === 'map'} onClick={() => onChange('map')}>Map</button>
+    <button data-analytics="mode_simple" type="button" aria-pressed={mode === 'simple'} onClick={() => onChange('simple')}>Simple</button>
+    <button data-analytics="mode_map" type="button" aria-pressed={mode === 'map'} onClick={() => onChange('map')}>Map</button>
   </div>;
 }
 function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; modeControl: React.ReactNode; settingError: string}) {
@@ -25,7 +25,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
   const status = feed && !fresh ? 'Offline. A newer bus may have passed.' : error && !feed ? 'Feed unavailable. No saved sighting is available.' : error || (!feed ? 'Checking the feed…' : sample ? 'Sample data. Not a real bus sighting.' : `Live · checked ${new Date(feed.lastCheckedAt!).toLocaleTimeString('en-US', {timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit'})}`);
   return <main className="simple-screen" data-mode="simple">
     <header className="simple-header">
-      <a className="simple-brand" href={import.meta.env.BASE_URL} aria-label="BusTrackr home">BusTrackr<span>Fehren ↔ Skyway</span></a>
+      <a data-analytics="home" className="simple-brand" href={import.meta.env.BASE_URL} aria-label="BusTrackr home">BusTrackr<span>Fehren ↔ Skyway</span></a>
       {modeControl}
     </header>
     <section className="simple-observation" aria-label="Last bus detection">
@@ -39,7 +39,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
       {age.kind === 'observed' && <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>}
     </section>
     <footer className="simple-footer">
-      <div className="simple-feed-status"><p role="status">{status}</p><button type="button" onClick={refresh} aria-label="Refresh feed">Refresh</button></div>
+      <div className="simple-feed-status"><p role="status">{status}</p><button data-analytics="feed_refresh" type="button" onClick={refresh} aria-label="Refresh feed">Refresh</button></div>
       {settingError && <p role="alert">{settingError}</p>}
     </footer>
   </main>;
@@ -49,11 +49,12 @@ function App() {
   const [settingError, setSettingError] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
   const camera = useCameraFeed();
+  useEffect(() => {window.BusTrackrAnalytics?.track('app_view', mode);}, [mode]);
   function changeMode(next: Mode) {
     setMode(next);
     try {localStorage.setItem(modeKey, next); setSettingError('');} catch {setSettingError('This mode works now but could not be saved.');}
   }
-  const modeControl = <div className="view-controls"><ModeControl mode={mode} onChange={changeMode}/>{mode === 'map' && <button type="button" className="alerts-button" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(value => !value)}>Alerts</button>}</div>;
+  const modeControl = <div className="view-controls"><ModeControl mode={mode} onChange={changeMode}/>{mode === 'map' && <button data-analytics="alerts_toggle" type="button" className="alerts-button" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(value => !value)}>Alerts</button>}</div>;
   return <div className="app-shell" data-mode={mode}>
     {mode === 'simple' ? <SimpleScreen camera={camera} modeControl={modeControl} settingError={settingError}/> : <Suspense fallback={<div className="map-opening">{modeControl}<p>Opening the map…</p></div>}><MapApp camera={camera} modeControl={modeControl}/></Suspense>}
     <div className="notification-dock" hidden={mode === 'map' && !alertsOpen}>

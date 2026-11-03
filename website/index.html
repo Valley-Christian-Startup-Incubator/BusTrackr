@@ -8,17 +8,17 @@
   <meta name="theme-color" content="#edf0e9">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.947c4677047a736b.css">
-  <script defer src="https://analytics.bryanhu.com/script.js" data-website-id="5eaf2f91-0cd8-48ce-84b1-1cc3244cf436" data-domains="bustrackr.valleychristianai.com,bustracker.valleychristianai.com,thatxliner.github.io,valley-christian-startup-incubator.github.io" data-exclude-hash="true"></script>
+  <script defer src="analytics.0e68a29a2cbf9404.js"></script>
 </head>
 <body>
-  <a class="skip" href="#main">Skip to content</a>
+  <a data-analytics="skip_main" class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="index.html">BusTrackr</a>
+      <a data-analytics="home" class="brand" href="index.html">BusTrackr</a>
       <nav class="site-nav" aria-label="Main">
-        <a href="#sighting">Sightings</a>
-        <a href="#views">The route</a>
-        <a href="support.html">Support</a>
+        <a data-analytics="nav_sightings" href="#sighting">Sightings</a>
+        <a data-analytics="nav_route" href="#views">The route</a>
+        <a data-analytics="nav_support" href="support.html">Support</a>
       </nav>
     </div>
   </header>
@@ -30,12 +30,12 @@
           <h1>Fehren to<br>Skyway.</h1>
           <p class="lede">A closer look at your campus shuttle. Check the latest camera sighting and explore the route in 3D.</p>
           <div class="hero-action">
-            <a class="button" href="/">Open the map <span aria-hidden="true">↗</span></a>
+            <a data-analytics="open_map" class="button" href="/">Open the map <span aria-hidden="true">↗</span></a>
             <p class="hero-live" id="hero-live">Live status unavailable</p>
           </div>
         </div>
         <figure class="panorama">
-          <div class="crop crop--campus"><img src="assets/scene-campus.png" width="1440" height="900" fetchpriority="high" alt="Modeled Skyway Campus, with pale stone buildings, trees, playing fields and the shuttle road."></div>
+          <div class="crop crop--campus"><img src="assets/scene-campus.png" width="1440" height="900" loading="lazy" fetchpriority="high" alt="Modeled Skyway Campus, with pale stone buildings, trees, playing fields and the shuttle road."></div>
           <figcaption>Skyway Campus · The BusTrackr model</figcaption>
         </figure>
       </div>
@@ -51,7 +51,7 @@
             <div><dt>Arrival estimate</dt><dd id="feed-estimate">Off: feed unavailable</dd></div>
             <div><dt>Status feed</dt><dd id="feed-state">Unavailable</dd></div>
           </dl>
-          <p class="board-note" data-rise>A sighting says when a camera saw a vehicle, not where it is now. Times are Pacific. <a href="support.html#reading">How to read the feed</a></p>
+          <p class="board-note" data-rise>A sighting says when a camera saw a vehicle, not where it is now. Times are Pacific. <a data-analytics="feed_help" href="support.html#reading">How to read the feed</a></p>
         </div>
 
       </div>
@@ -87,11 +87,11 @@
     <div class="wrap">
       <p class="footer-name">BusTrackr</p>
       <nav class="footer-links" aria-label="Footer">
-        <a href="privacy.html">Privacy</a>
-        <a href="support.html">Support</a>
-        <a href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
+        <a data-analytics="footer_privacy" href="privacy.html">Privacy</a>
+        <a data-analytics="footer_support" href="support.html">Support</a>
+        <a data-analytics="footer_github" href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
       </nav>
-      <p class="credits">© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+      <p class="credits">© <a data-analytics="credits_osm" href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
     </div>
   </footer>
 

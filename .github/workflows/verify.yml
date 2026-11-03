@@ -25,6 +25,8 @@ jobs:
       - run: npm run test:alerts
       - run: python3 scripts/test-deploy-website.py
       - run: npm run build
+      - run: node scripts/check-sitewide-analytics.mjs
+      - run: node scripts/check-landing-feed.mjs
       - run: npm --prefix mobile run typecheck
       - run: npm --prefix mobile run lint
       - run: npm --prefix mobile test

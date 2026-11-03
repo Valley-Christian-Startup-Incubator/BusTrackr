@@ -11,7 +11,7 @@ try {
   const page = await browser.newPage({userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'});
   const collected = page.waitForResponse(response => {
     const request = response.request();
-    if (request.method() !== 'POST' || response.url() !== 'https://analytics.bryanhu.com/api/send') return false;
+    if (request.method() !== 'POST' || response.url() !== 'https://analytics.valleychristianai.com/api/send') return false;
     const event = request.postDataJSON();
     return event.type === 'event' && !event.payload.name && event.payload.url.includes(campaign);
   }, {timeout: 30_000});
