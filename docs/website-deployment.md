@@ -31,7 +31,7 @@ python3 ~/apps/bustrackr/deploy-website/controller.py --node ~/apps/bustrackr/ru
 
 The bare source repository must retain the canonical origin. Fetches target only `main`. A non-fast-forward update fails. The controller never resets a dirty checkout because it never uses a working checkout.
 
-Each attempt exports the commit into a separate release directory. It installs the locked root dependencies, builds the React map, and stages the map under `website/BusTrackr`. The build sets `VITE_ALERT_API_URL=/api/shuttle`. It validates HTML references, content-hashed website assets, map resources, and the actual frontend handler before promotion. Build output is private at `deploy-website/build-COMMIT.log`.
+Each attempt exports the commit into a separate release directory. It installs the locked root and mobile dependencies required by the shared TypeScript modules, builds the React map, and stages the map under `website/BusTrackr`. The build sets `VITE_ALERT_API_URL=/api/shuttle`. It validates HTML references, content-hashed website assets, map resources, and the actual frontend handler before promotion. Build output is private at `deploy-website/build-COMMIT.log`.
 
 The controller uses a descriptive browser-compatible health-check User-Agent because Cloudflare Browser Integrity Check rejects Python's default User-Agent. The controller inserts a release marker in each HTML document. It probes the public homepage and API before promotion, then verifies the selected release marker on the public pages afterward. A failed post-promotion check restores the previous release. The controller records the failed commit and skips it until a newer commit arrives or an operator runs `deploy --retry`.
 
@@ -59,7 +59,7 @@ Rollback retains the reverted commit as failed so the unchanged watcher does not
 
 ## Retain assets and verify continuity
 
-Versioned website CSS and JavaScript go into an append-only asset registry. The controller verifies the filename hash against the bytes. Vite assets under `BusTrackr/assets` use Vite filenames and reject a filename collision with different bytes. Before promotion, the controller adds these assets to all retained release roots with hardlinks. Existing asset bytes never change. This also lets an old document fetch a newer asset after a rollback.
+Versioned website CSS and JavaScript go into an append-only asset registry. The controller verifies the filename hash against the bytes. Vite assets under `BusTrackr/assets` use Vite filenames and reject a filename collision with different bytes. Before promotion, the controller adds these assets to the candidate and live release roots with hardlinks. It hydrates the selected rollback root from the registry before switching. Failed release directories never contribute assets to later attempts. Existing asset bytes never change. This also lets an old document fetch a newer asset after a rollback.
 
 The active and previous releases and the original adopted directory are retained. This first controller does not delete old release payloads or the asset registry. Inspect disk use before adding a retention policy. Never remove an asset that a retained document can request. Never delete a release while a response may still be reading it.
 
