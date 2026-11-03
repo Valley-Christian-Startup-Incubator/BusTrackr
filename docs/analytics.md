@@ -1,6 +1,6 @@
 # Website analytics
 
-BusTrackr uses the self-hosted Umami website `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436` at https://analytics.bryanhu.com. Native iOS and Android apps have no analytics SDK.
+BusTrackr uses the self-hosted Umami website `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436` at https://analytics.valleychristianai.com on SSH host `valley-big-mac`. The collector and its PostgreSQL database run on that host. Native iOS and Android apps have no analytics SDK.
 
 `public/analytics.js` is the canonical bootstrap. It initializes identity and listeners, then creates an asynchronous external Umami script on the landing, support, privacy and web app pages. The remote tracker never blocks app module startup. `npm run website:prepare` copies it into the static website and references a content-hashed copy. Vite copies the same source into the app build. Deploy the app HTML and public assets together. The unhashed app bootstrap should receive the deployment's normal revalidation policy.
 

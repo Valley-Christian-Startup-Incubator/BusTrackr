@@ -38,7 +38,7 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
   if (storageBlocked) await context.addInitScript(() => Object.defineProperty(window, 'localStorage', {get(){throw new Error('storage blocked');}}));
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
-    if (url.hostname === 'analytics.bryanhu.com') {
+    if (url.hostname === 'analytics.valleychristianai.com') {
       if (url.pathname === '/script.js') {
         if (blocked) return route.abort();
         if (delayed) await gate;
