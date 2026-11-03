@@ -154,7 +154,7 @@ export function notificationDelivery(env=process.env, fetchImpl=fetch) {
   if(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.VAPID_SUBJECT) {
     try {webPush.setVapidDetails(env.VAPID_SUBJECT,env.VAPID_PUBLIC_KEY,env.VAPID_PRIVATE_KEY);webPushPublicKey=env.VAPID_PUBLIC_KEY;}catch {}
   }
-  const appUrl=env.NOTIFICATIONS_APP_URL || 'https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/';
+  const appUrl=env.NOTIFICATIONS_APP_URL || 'https://bustrackr.valleychristianai.com/';
   async function expoRequest(path,body) {
     const response=await fetchImpl(`https://exp.host/--/api/v2/push/${path}`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),
       headers:{'Content-Type':'application/json',...(env.EXPO_ACCESS_TOKEN?{Authorization:`Bearer ${env.EXPO_ACCESS_TOKEN}`}:{})},body:JSON.stringify(body)});

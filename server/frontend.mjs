@@ -65,6 +65,10 @@ export function createFrontend({root,upstreamHost='127.0.0.1',upstreamPort=18787
   return createServer(async(req,res)=>{
     if(req.url.split('?')[0].startsWith('/api/')) {proxy(req,res,upstreamHost,upstreamPort);return;}
     try {
+      if (['GET','HEAD'].includes(req.method) && /^\/BusTrackr\/?(?:\?|$)/.test(req.url) && await stat(resolve(root,'manifest.webmanifest')).then(()=>true,()=>false)) {
+        const query=req.url.includes('?')?req.url.slice(req.url.indexOf('?')):'';
+        res.writeHead(308, {Location:'/'+query,'Cache-Control':'no-store'});res.end();return;
+      }
       if(await staticFile(req,res,root))return;
       res.writeHead(404, {'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});res.end('Not found');
     } catch {unavailable(res);}

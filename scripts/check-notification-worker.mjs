@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
-const url=process.argv[2] || 'http://127.0.0.1:4174/BusTrackr/';
+const url=process.argv[2] || 'http://127.0.0.1:4174/';
 const browser=await chromium.launch({channel: 'chromium'});
 try {
   const context=await browser.newContext();

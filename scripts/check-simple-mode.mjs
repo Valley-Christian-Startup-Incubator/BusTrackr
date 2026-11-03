@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
 
-const url = process.argv[2] || 'http://127.0.0.1:4174/BusTrackr/';
+const url = process.argv[2] || 'http://127.0.0.1:4174/';
 const now = Date.parse('2026-11-02T23:30:00Z');
 const browser = await chromium.launch();
 const context = await browser.newContext({viewport: {width: 390, height: 844}});

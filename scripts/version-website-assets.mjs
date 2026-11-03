@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile, writeFile, readdir} from 'node:fs/promises';
 const root = new URL('../website/',import.meta.url);
 const check = process.argv.includes('--check');
 const replacements = [];
@@ -13,8 +13,11 @@ for (const name of ['style.css','site.js']) {
   } else await writeFile(new URL(versioned,root),bytes);
   replacements.push({name,versioned});
 }
-for (const name of ['index.html','support.html','privacy.html']) {
+const pages = ['index.html','support.html','privacy.html'];
+if ((await readdir(root)).includes('about.html')) pages.push('about.html');
+for (const name of pages) {
   const path = new URL(name,root), html = await readFile(path,'utf8');
+  if (name === 'index.html' && html.includes('<div id="root">')) continue;
   let next = html;
   for (const {name,versioned} of replacements) {
     const [stem,ext] = name.split('.');

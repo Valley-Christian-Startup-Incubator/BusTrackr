@@ -180,7 +180,8 @@ if sys.argv[1:] == ['run', 'build']:
     if ['ci', '--prefix', 'mobile', '--ignore-scripts'] not in calls:
         raise SystemExit('Missing expo/tsconfig.base dependency installation')
     Path('dist').mkdir()
-    Path('dist/index.html').write_text('<html><head></head><body>map fixture</body></html>')
+    Path('dist/index.html').write_text('<html><head></head><body><div id="root">map fixture</div></body></html>')
+    Path('dist/manifest.webmanifest').write_text('{}')
 """ % (str(installed), str(installed)))
         npm.chmod(0o755)
         self.deployer.node = str(node)
@@ -282,6 +283,34 @@ if sys.argv[1:] == ['run', 'build']:
         shutil.rmtree(artifact / 'BusTrackr')
         with self.deployer.locked(), self.assertRaisesRegex(RuntimeError, 'remove the self-hosted map'):
             self.deployer.artifact(artifact)
+
+    def test_root_tracker_migrates_legacy_map_and_preserves_assets_on_rollback(self):
+        legacy = self.root / 'website/BusTrackr'
+        (legacy / 'assets').mkdir(parents=True)
+        (legacy / 'index.html').write_text('<html><head></head><body>legacy map</body></html>')
+        (legacy / 'assets/index-abcdefgh.js').write_text('legacy script')
+        self.adopt()
+        release = self.base / 'root-release'
+        shutil.copytree(self.source / 'website', release / 'website')
+        dist = release / 'dist'
+        (dist / 'assets').mkdir(parents=True)
+        (dist / 'index.html').write_text('<html><head></head><body><div id="root"></div><script src="/assets/index-ijklmnop.js"></script></body></html>')
+        (dist / 'assets/index-ijklmnop.js').write_text('root script')
+        (dist / 'manifest.webmanifest').write_text('{"name":"BusTrackr"}')
+        self.deployer.stage_map(release)
+        self.assertIn('first', (release / 'website/about.html').read_text())
+        self.assertIn('id="root"', (release / 'website/index.html').read_text())
+        with self.deployer.locked():
+            self.deployer.artifact(release / 'website')
+        self.assertIn('id="root"', self.request())
+        self.assertIn('id="root"', self.request('/BusTrackr/?utm_source=instagram'))
+        self.assertIn('first', self.request('/about.html'))
+        self.assertEqual(self.request('/assets/index-ijklmnop.js'), 'root script')
+        self.assertEqual(self.request('/BusTrackr/assets/index-abcdefgh.js'), 'legacy script')
+        with self.deployer.locked():
+            self.deployer.rollback()
+        self.assertIn('legacy map', self.request('/BusTrackr/'))
+        self.assertEqual(self.request('/assets/index-ijklmnop.js'), 'root script')
 
     def test_interrupted_adoption_before_exchange_keeps_live_directory(self):
         after = {'commit': 'unpromoted', 'path': str(self.base / 'candidate')}

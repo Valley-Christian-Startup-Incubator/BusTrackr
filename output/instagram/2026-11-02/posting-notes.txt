@@ -2,8 +2,8 @@ Use fehren-bus-tracker-story.png for the vertical Instagram Story.
 Add Instagram's real Link sticker in the empty area between OPEN THE TRACKER and the small camera-sightings note.
 Sticker text: Open the tracker
 
-Production Story link verified after deployment on November 2, 2026:
-https://bustrackr.valleychristianai.com/BusTrackr/?utm_source=instagram&utm_medium=social&utm_campaign=fehren-bus-tracker&utm_content=story
+Production Story link (root-path hosting):
+https://bustrackr.valleychristianai.com/?utm_source=instagram&utm_medium=social&utm_campaign=fehren-bus-tracker&utm_content=story
 
 The self-hosted app is now live on valley-big-mac. No URL is baked into the artwork, so future link changes do not require a new image.
 

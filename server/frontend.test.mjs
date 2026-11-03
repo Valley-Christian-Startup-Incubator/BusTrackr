@@ -20,6 +20,9 @@ test('frontend serves map assets safely and forwards signed API bytes through re
   const old=join(dir,'old'),next=join(dir,'next'),live=join(dir,'website');
   for(const root of [old,next]) {
     await mkdir(join(root,'BusTrackr/assets'),{recursive:true});
+    await mkdir(join(root,'assets'),{recursive:true});
+    await writeFile(join(root,'assets/index-ROOTabcd.js'),'root script');
+    await writeFile(join(root,'manifest.webmanifest'),'{}');
     await writeFile(join(root,'index.html'),root===old?'old release':'new release');
     await writeFile(join(root,'BusTrackr/index.html'),'<div id="root"></div>');
     await writeFile(join(root,'BusTrackr/assets/index-ABCDEf12.js'),'retained script');
@@ -65,7 +68,11 @@ test('frontend serves map assets safely and forwards signed API bytes through re
       const response=await fetch(base+'/BusTrackr/'+path);assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),mime);
     }
     const map=await fetch(base+'/BusTrackr/?utm_source=instagram');assert.equal(map.status,200);assert.equal(map.headers.get('cache-control'),'no-store');
-    const redirect=await fetch(base+'/BusTrackr?utm_source=instagram',{redirect:'manual'});assert.equal(redirect.status,308);assert.equal(redirect.headers.get('location'),'/BusTrackr/?utm_source=instagram');
+    const redirect=await fetch(base+'/BusTrackr?utm_source=instagram',{redirect:'manual'});assert.equal(redirect.status,308);assert.equal(redirect.headers.get('location'),'/?utm_source=instagram');
+    const legacy=await fetch(base+'/BusTrackr/?utm_source=instagram',{redirect:'manual'});
+    assert.equal(legacy.status,308);assert.equal(legacy.headers.get('location'),'/?utm_source=instagram');
+    assert.equal(await (await fetch(base+'/assets/index-ROOTabcd.js')).text(),'root script');
+    assert.equal((await fetch(base+'/manifest.webmanifest')).headers.get('content-type'),'application/manifest+json');
     const head=await fetch(base+'/BusTrackr/data.json',{method:'HEAD'});assert.equal(head.status,200);assert.equal(await head.text(),'');
     for(const path of ['/style.0123456789abcdef.css','/BusTrackr/assets/index-ABCDEf12.js'])assert.match((await fetch(base+path)).headers.get('cache-control'),/immutable/);
     for(const path of ['/.env','/%2eenv','/%2e%2e/private.md','/BusTrackr/%2e%2e/%2eenv','/%252eenv','/escape.html','/private.md','/BusTrackr%5c..%5c.env'])assert.equal((await rawGet(port,path)).status,404,path);

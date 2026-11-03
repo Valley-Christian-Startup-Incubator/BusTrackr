@@ -21,7 +21,7 @@ import uuid
 REPOSITORY = 'https://github.com/Valley-Christian-Startup-Incubator/BusTrackr.git'
 PUBLIC_URLS = ('https://bustrackr.valleychristianai.com', 'https://bustracker.valleychristianai.com')
 ASSET = re.compile(r'^.+\.([a-f0-9]{16})\.(css|js)$')
-VITE_ASSET = re.compile(r'^BusTrackr/assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$')
+VITE_ASSET = re.compile(r'^(?:BusTrackr/)?assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$')
 PAGES = ('index.html', 'privacy.html', 'support.html')
 HEALTH_HEADERS = {'User-Agent': 'Mozilla/5.0 BusTrackr-Deployment-Health/1.0', 'Cache-Control': 'no-cache'}
 
@@ -189,10 +189,13 @@ class Deployer:
             if path.is_file() and path.suffix.lower() not in {'.html', '.css', '.js', '.svg', '.png', '.webp', '.jpg', '.jpeg', '.ico', '.json', '.glb', '.gltf', '.bin', '.wasm', '.webmanifest', '.woff', '.woff2', '.ttf', '.txt', '.md'}:
                 raise RuntimeError('Unexpected public asset: ' + path.name)
         pages = list(PAGES)
-        if (self.live / 'BusTrackr/index.html').exists() and not (root / 'BusTrackr/index.html').exists():
+        root_map = (root / 'manifest.webmanifest').exists()
+        if ((self.live / 'BusTrackr/index.html').exists() or (self.live / 'manifest.webmanifest').exists()) and not ((root / 'BusTrackr/index.html').exists() or root_map):
             raise RuntimeError('Candidate would remove the self-hosted map')
         if (root / 'BusTrackr/index.html').exists():
             pages.append('BusTrackr/index.html')
+        if (root / 'about.html').exists():
+            pages.append('about.html')
         for name in pages:
             html = (root / name).read_text()
             for target in re.findall(r'(?:src|href)=[\'"]([^\'"?#]+)', html):
@@ -244,10 +247,11 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
                         raise RuntimeError('Public route has not selected the candidate release')
 
     def probe_map(self, base, root, commit):
-        map_root = root / 'BusTrackr'
+        prefix = '/' if (root / 'manifest.webmanifest').exists() else '/BusTrackr/'
+        map_root = root if prefix == '/' else root / 'BusTrackr'
         if not (map_root / 'index.html').exists():
             return
-        with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + '/BusTrackr/?release_probe=' + uuid.uuid4().hex, headers=HEALTH_HEADERS), timeout=10) as response:
+        with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + prefix + '?release_probe=' + uuid.uuid4().hex, headers=HEALTH_HEADERS), timeout=10) as response:
             if f'content="{commit}"'.encode() not in response.read():
                 raise RuntimeError('Map page has not selected the candidate release')
         checks = []
@@ -256,7 +260,7 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             if path:
                 checks.append((path, mime))
         for path, mime in checks:
-            with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + '/BusTrackr/' + str(path.relative_to(map_root)), headers=HEALTH_HEADERS), timeout=10) as response:
+            with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + prefix + str(path.relative_to(map_root)), headers=HEALTH_HEADERS), timeout=10) as response:
                 if mime not in response.headers.get('Content-Type', '') or response.read(64).lstrip().lower().startswith(b'<!doctype html'):
                     raise RuntimeError('Map resource has an invalid content type: ' + str(path))
 
@@ -333,7 +337,7 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
                     if (release / 'mobile/package-lock.json').exists():
                         subprocess.run(['npm', 'ci', '--prefix', 'mobile', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
                     subprocess.run(['npm', 'run', 'build'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
-                shutil.copytree(release / 'dist', release / 'website/BusTrackr')
+                self.stage_map(release)
             self.validate(release, commit)
             self.compact(release)
             return self.promote({'commit': commit, 'path': str(release / 'website')}, commit)
@@ -343,6 +347,11 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             state['failed_commit'] = commit
             self.save(state)
             raise
+
+    def stage_map(self, release):
+        website = release / 'website'
+        shutil.copy2(website / 'index.html', website / 'about.html')
+        shutil.copytree(release / 'dist', website, dirs_exist_ok=True)
 
     def compact(self, release):
         for entry in release.iterdir():
@@ -383,7 +392,7 @@ def main():
     parser.add_argument('--handler', type=Path, help='Installed static frontend module used for candidate previews')
     parser.add_argument('command', choices=('adopt', 'deploy', 'status', 'rollback', 'pause', 'resume'))
     parser.add_argument('--retry', action='store_true')
-    parser.add_argument('--artifact', type=Path, help='Deploy a separate prebuilt website snapshot, including BusTrackr/ when present')
+    parser.add_argument('--artifact', type=Path, help='Deploy a separate prebuilt website snapshot, including the root tracker build when present')
     args = parser.parse_args()
     deployer = Deployer(args.root, node=args.node, handler=args.handler)
     with deployer.locked() as acquired:

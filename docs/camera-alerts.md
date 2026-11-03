@@ -198,7 +198,7 @@ Website CSS and JavaScript use content-hashed filenames. After editing `website/
 
 The website uses the existing self-hosted Umami instance at `https://analytics.bryanhu.com` on SSH host `big-mac`. Its BusTrackr website ID is `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436`. The public website ID is safe to include in HTML. Keep dashboard credentials on the analytics host.
 
-The three HTML pages in `website/` include the tracker. The root React entry HTML includes the same tracker when built into the self-hosted `/BusTrackr/` map. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
+The three HTML pages in `website/` include the tracker. The root React entry HTML includes the same tracker when built into the self-hosted `/` map. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
 
 Run `node scripts/check-analytics.mjs` to verify an accepted browser pageview with a unique verification campaign. Pass a URL as the first argument to check another deployment. The check uses a regular browser user agent because Umami filters headless browser traffic as bots. Confirm the campaign appears in Umami as well. An HTTP 200 response alone does not prove that Umami stored an event.
 
