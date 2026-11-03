@@ -1,6 +1,6 @@
 import {lazy, Suspense, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {observationAge} from '../mobile/src/shuttle/observation';
+import {observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
 import {useCameraFeed, type CameraFeed} from './useCameraFeed';
 import {WebNotifications} from './WebNotifications';
 import './simple.css';
@@ -20,6 +20,7 @@ function ModeControl({mode, onChange}: {mode: Mode; onChange: (mode: Mode) => vo
 function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; modeControl: React.ReactNode; settingError: string}) {
   const {feed, fresh, error, now, refresh} = camera;
   const age = observationAge(feed?.latest?.eventAt, now);
+  const relativeTime = age.kind === 'observed' ? relativeObservationTime(age.minutes) : null;
   const sample = feed?.status === 'sample';
   const status = feed && !fresh ? 'Offline. A newer bus may have passed.' : error && !feed ? 'Feed unavailable. No saved sighting is available.' : error || (!feed ? 'Checking the feed…' : sample ? 'Sample data. Not a real bus sighting.' : `Live · checked ${new Date(feed.lastCheckedAt!).toLocaleTimeString('en-US', {timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit'})}`);
   return <main className="simple-screen" data-mode="simple">
@@ -30,11 +31,11 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
     <section className="simple-observation" aria-label="Last bus detection">
       {sample && <p className="simple-sample">Sample data</p>}
       <h1>The last Fehren bus<br/>was detected</h1>
-      {age.kind === 'observed' ? <div className="simple-age" aria-label={`${age.minutes} ${age.minutes === 1 ? 'minute' : 'minutes'} ago`}>
-        <span className="simple-number" data-digits={String(age.minutes).length} data-testid="observation-minutes" style={{color: fresh ? age.color : '#53645c'}}>{age.minutes.toLocaleString()}</span>
-        <span className="simple-unit">{age.minutes === 1 ? 'minute' : 'minutes'} ago</span>
+      {age.kind === 'observed' ? <div className="simple-age" aria-label={relativeTime!.label}>
+        <span className="simple-number" data-digits={relativeTime!.value.length} data-testid="observation-age" style={{color: fresh ? age.color : '#53645c'}}>{relativeTime!.value}</span>
+        <span className="simple-unit">{relativeTime!.unit} ago</span>
       </div> : <p className="simple-empty">{age.kind === 'clock-error' ? 'Camera clock is ahead' : !feed && !error ? 'Checking the feed…' : feed?.latest ? 'Camera time unavailable' : !feed ? 'No observation available' : 'No bus detected yet'}</p>}
-      {age.kind === 'observed' && <p className="simple-time">{age.minutes === 0 ? 'Less than a minute ago · ' : ''}<time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
+      {age.kind === 'observed' && <p className="simple-time"><time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
       {age.kind === 'observed' && <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>}
     </section>
     <footer className="simple-footer">

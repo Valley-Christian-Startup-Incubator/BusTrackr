@@ -26,9 +26,9 @@ await page.route('**/api/shuttle', async route => {
 await page.route('**/api/notifications/config', route => route.fulfill({json: {webPushPublicKey: null, expo: false}}));
 try {
   await page.goto(url, {waitUntil: 'networkidle'});
-  await page.getByTestId('observation-minutes').waitFor();
-  assert.equal(await page.getByTestId('observation-minutes').textContent(), '0');
-  assert.equal(await page.getByTestId('observation-minutes').evaluate(node => getComputedStyle(node).color), 'rgb(22, 114, 72)');
+  await page.getByTestId('observation-age').waitFor();
+  assert.equal(await page.getByTestId('observation-age').textContent(), '<1');
+  assert.equal(await page.getByTestId('observation-age').evaluate(node => getComputedStyle(node).color), 'rgb(22, 114, 72)');
   assert(!requests.some(value => /local-scene|world[-.]|three-/.test(value)), 'Simple mode must not request 3D code or assets');
   await mkdir('.audit/simple-mode', {recursive: true});
   await page.screenshot({path: '.audit/simple-mode/web-green.png', fullPage: true});
@@ -40,15 +40,25 @@ try {
   for (const [age, color] of [[5, 'rgb(148, 98, 0)'], [10, 'rgb(179, 50, 43)']]) {
     minutes = age;
     await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
-    await page.waitForFunction(value => document.querySelector('[data-testid="observation-minutes"]')?.textContent === String(value), age);
-    assert.equal(await page.getByTestId('observation-minutes').evaluate(node => getComputedStyle(node).color), color);
+    await page.waitForFunction(value => document.querySelector('[data-testid="observation-age"]')?.textContent === String(value), age);
+    assert.equal(await page.getByTestId('observation-age').evaluate(node => getComputedStyle(node).color), color);
   }
+  for (const [elapsed, value, unit] of [[60, '1', 'hour'], [120, '2', 'hours'], [1440, '1', 'day'], [12000, '8', 'days']]) {
+    minutes = elapsed;
+    await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+    await page.waitForFunction(value => document.querySelector('[data-testid="observation-age"]')?.textContent === value, value);
+    await page.getByText(`${unit} ago`, {exact: true}).waitFor();
+  }
+  await page.screenshot({path: '.audit/simple-mode/web-days.png', fullPage: true});
+  minutes = 10;
+  await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="observation-age"]')?.textContent === '10');
   await page.screenshot({path: '.audit/simple-mode/web-red.png', fullPage: true});
   failed = true;
   await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
   await page.getByText('Offline. A newer bus may have passed.').waitFor();
-  assert.equal(await page.getByTestId('observation-minutes').textContent(), '10');
-  assert.equal(await page.getByTestId('observation-minutes').evaluate(node => getComputedStyle(node).color), 'rgb(83, 100, 92)');
+  assert.equal(await page.getByTestId('observation-age').textContent(), '10');
+  assert.equal(await page.getByTestId('observation-age').evaluate(node => getComputedStyle(node).color), 'rgb(83, 100, 92)');
   failed = false;
   missing = true;
   await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
@@ -57,7 +67,7 @@ try {
   minutes = -1;
   await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
   await page.getByText('Camera clock is ahead').waitFor();
-  assert.equal(await page.getByTestId('observation-minutes').count(), 0);
+  assert.equal(await page.getByTestId('observation-age').count(), 0);
   await page.getByRole('button', {name: 'Map', exact: true}).click();
   await page.getByRole('button', {name: 'Simple', exact: true}).waitFor();
   assert.equal(await page.evaluate(() => localStorage.getItem('bustrackr.view.v1')), 'map');

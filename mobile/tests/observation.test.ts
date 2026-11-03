@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {observationAge} from '../src/shuttle/observation';
+import {observationAge, relativeObservationTime} from '../src/shuttle/observation';
 
 const now = Date.parse('2026-11-02T23:30:00Z');
 const at = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
@@ -16,4 +16,21 @@ test('missing, invalid and future camera times never look like recent detections
   assert.deepEqual(observationAge(undefined, now), {kind: 'missing'});
   assert.deepEqual(observationAge('bad', now), {kind: 'missing'});
   assert.deepEqual(observationAge(at(-1), now), {kind: 'clock-error'});
+});
+
+test('relative sighting time uses readable units without changing recency', () => {
+  for (const [minutes, value, unit, label] of [
+    [0, '<1', 'minute', 'Less than a minute ago'],
+    [1, '1', 'minute', '1 minute ago'],
+    [59, '59', 'minutes', '59 minutes ago'],
+    [60, '1', 'hour', '1 hour ago'],
+    [120, '2', 'hours', '2 hours ago'],
+    [1439, '23', 'hours', '23 hours ago'],
+    [1440, '1', 'day', '1 day ago'],
+    [12000, '8', 'days', '8 days ago'],
+    [43200, '1', 'month', '1 month ago'],
+    [525600, '1', 'year', '1 year ago'],
+    [1051200, '2', 'years', '2 years ago'],
+  ] as const) assert.deepEqual(relativeObservationTime(minutes), {value, unit, label});
+  assert.deepEqual(observationAge(at(12000), now), {kind: 'observed', minutes: 12000, color: '#b3322b'});
 });
