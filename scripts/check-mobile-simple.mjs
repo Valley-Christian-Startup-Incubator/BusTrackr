@@ -13,13 +13,13 @@ try {
     eventCount:2,prediction:{status:'unconfigured',generatedAt:new Date().toISOString(),marker:null},
   }}));
   await page.goto(process.env.MOBILE_URL || 'http://127.0.0.1:8087',{waitUntil:'domcontentloaded',timeout:60000});
-  const numeral=page.getByTestId('observation-minutes');
+  const numeral=page.getByTestId('observation-age');
   await numeral.waitFor({timeout:60000});
   assert.equal(await numeral.innerText(),'2');
   assert.equal(await page.locator('iframe').count(),0);
   await page.screenshot({path:`${out}/mobile-green.png`});
   minutes=10;await page.getByRole('button',{name:'Refresh',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('[data-testid="observation-minutes"]')?.textContent==='10');
+  await page.waitForFunction(()=>document.querySelector('[data-testid="observation-age"]')?.textContent==='10');
   assert.equal(await numeral.evaluate(el=>getComputedStyle(el).color),'rgb(179, 50, 43)');
   await page.screenshot({path:`${out}/mobile-red.png`});
   offline=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
@@ -37,7 +37,8 @@ try {
     future=false;minutes=12000;await page.setViewportSize({width,height:900});
     await page.getByRole('button',{name:'Refresh',exact:true}).click();
     await numeral.waitFor();
-    await page.waitForFunction(()=>document.querySelector('[data-testid="observation-minutes"]')?.textContent==='12,000');
+    await page.waitForFunction(()=>document.querySelector('[data-testid="observation-age"]')?.textContent==='8');
+    await page.getByText('days ago', {exact: true}).waitFor();
     assert(await numeral.evaluate(el=>{const style=getComputedStyle(el);const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');ctx.font=`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;return ctx.measureText(el.textContent).width<=el.clientWidth;}), `minute numeral is clipped at ${width}`);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),`overflow at ${width}`);
     await page.screenshot({path:`${out}/mobile-${width}.png`});
