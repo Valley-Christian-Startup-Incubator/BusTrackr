@@ -1,0 +1,7 @@
+Built-in ImageGen. Two final assets.
+
+FEED POST
+Portrait4:5 transit-poster graphic. Pale sage-white #edf0e9, forest-green #263b37, bold condensed typography. Exact huge headline FEHREN / BUS / TRACKER. Small BusTrackr. Supporting copy: See when the bus was last detected. Detailed clean yellow American school shuttle illustration without school logo or lettering. CTA: OPEN THE WEB APP. Link in bio. Footer: Camera sightings. Not live GPS. No fake app UI, invented timestamps, QR code, GPS or ETA claims. No baked-in URL.
+
+STORY
+Generate a new matching vertical9:16 Instagram Story using the feed post as a style reference, not a crop. Keep top and bottom14% free of important content. Exact huge headline FEHREN / BUS / TRACKER. Small BusTrackr above. Exact subline: See when the bus was last detected. Yellow school shuttle illustration in lower-middle. CTA: OPEN THE TRACKER. Empty space around79% height for a real Instagram Link sticker added later. Exact footer: Camera sightings. Not live GPS. No fake buttons, phone screenshots, statistics, ETA or GPS claims, school seal, QR code or URL.
