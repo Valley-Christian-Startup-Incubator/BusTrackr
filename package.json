@@ -25,7 +25,6 @@
   "dependencies": {
     "@turf/buffer": "^7.4.0",
     "@turf/helpers": "^7.4.0",
-    "@vercel/blob": "^2.8.2",
     "lucide-react": "^0.468.0",
     "mailauth": "^8.0.4",
     "mailparser": "^3.9.39",
@@ -33,6 +32,7 @@
     "react-dom": "^19.1.0",
     "svix": "^2.9.1",
     "three": "^0.180.0",
+    "web-push": "^3.6.7",
     "zod": "4.6.7"
   },
   "devDependencies": {

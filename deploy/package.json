@@ -6,10 +6,11 @@
     "node": "^24.22.1"
   },
   "dependencies": {
+    "mailauth": "^8.0.4",
     "mailparser": "^3.9.39",
     "svix": "^2.9.1",
-    "zod": "4.6.7",
-    "mailauth": "^8.0.4"
+    "web-push": "^3.6.7",
+    "zod": "4.6.7"
   },
   "overrides": {
     "joi": "^18.3.1"

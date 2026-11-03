@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>com.valley.bustrackr.frontend</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin/node</string>
+		<string>/Users/aimac/apps/bustrackr/server/frontend.mjs</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict><key>WEBSITE_ROOT</key><string>/Users/aimac/apps/bustrackr/website</string></dict>
+	<key>WorkingDirectory</key><string>/Users/aimac/apps/bustrackr</string>
+	<key>RunAtLoad</key><true/>
+	<key>KeepAlive</key><true/>
+	<key>LimitLoadToSessionType</key><string>Background</string>
+	<key>StandardOutPath</key><string>/Users/aimac/apps/bustrackr/logs/com.valley.bustrackr.frontend.out.log</string>
+	<key>StandardErrorPath</key><string>/Users/aimac/apps/bustrackr/logs/com.valley.bustrackr.frontend.err.log</string>
+	<key>ThrottleInterval</key><integer>10</integer>
+</dict>
+</plist>

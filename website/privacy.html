@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#edf0e9">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.947c4677047a736b.css">
+  <script defer src="https://analytics.bryanhu.com/script.js" data-website-id="5eaf2f91-0cd8-48ce-84b1-1cc3244cf436" data-domains="bustrackr.valleychristianai.com,bustracker.valleychristianai.com,thatxliner.github.io,valley-christian-startup-incubator.github.io" data-exclude-hash="true"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -16,7 +17,7 @@
       <a class="brand" href="index.html">BusTrackr</a>
       <nav class="site-nav" aria-label="Main">
         <a href="support.html">Support</a>
-        <a class="button" href="https://Valley-Christian-Startup-Incubator.github.io/BusTrackr/">Open web app</a>
+        <a class="button" href="/BusTrackr/">Open web app</a>
       </nav>
     </div>
   </header>
@@ -25,8 +26,8 @@
     <div class="doc-head">
       <div class="wrap">
         <h1>Privacy</h1>
-        <p class="lede">BusTrackr has no accounts, no ads and no analytics. It doesn't ask who you are or where you are.</p>
-        <p class="small muted">Last updated November 1, 2026. This page describes how the software works today.</p>
+        <p class="lede">BusTrackr has no accounts or ads. The website and web app use self-hosted analytics to measure visits and campaign links. The native apps contain no analytics SDK.</p>
+        <p class="small muted">Last updated November 2, 2026. This page describes the current app source. Push notifications require a configured deployment.</p>
       </div>
     </div>
 
@@ -34,7 +35,7 @@
       <section>
         <h2>The iOS and Android apps</h2>
         <ul>
-          <li>The app saves one thing on your device: the status URL you connected to, or the sample scenario you picked.</li>
+          <li>The app saves your status URL or sample scenario, your Simple or Map display preference, and your notification opt-in and subscription management credentials on your device.</li>
           <li>It doesn't request location permission and doesn't use GPS.</li>
           <li>It doesn't save camera observations between launches.</li>
           <li>It contains no analytics or advertising SDK.</li>
@@ -45,17 +46,17 @@
 
       <section>
         <h2>This website</h2>
-        <p>This site sets no cookies and loads no third-party scripts, fonts or trackers. The home page requests <code>/api/shuttle</code> from this same server once per page load to show feed status.</p>
+        <p>This site sets no analytics cookies. It loads Umami from our self-hosted server at <code>analytics.bryanhu.com</code> to count page views and measure campaign links, including Instagram story links. Analytics includes the page URL and its campaign parameters, referring page, browser, device and approximate location derived from the request. Do not put personal information in link parameters. We do not enable session recording. The home page also requests <code>/api/shuttle</code> from this same server once per page load to show feed status.</p>
       </section>
 
       <section>
         <h2>The 3D web app</h2>
-        <p>The web app is a separate site hosted by GitHub Pages. GitHub may log visits under the <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub privacy statement</a>. It also loads fonts from Google Fonts, so Google can see your IP address under the <a href="https://policies.google.com/privacy">Google privacy policy</a>. The web app's own code sets no cookies and has no analytics.</p>
+        <p>The web app is hosted with this website on our server. Requests pass through Cloudflare under the privacy policy linked below. It also loads fonts from Google Fonts, so Google can see your IP address under the <a href="https://policies.google.com/privacy">Google privacy policy</a>. The web app uses the same self-hosted Umami analytics described above, without analytics cookies or session recording.</p>
       </section>
 
       <section>
         <h2>The status server</h2>
-        <p>Requests to this site and to <code>/api/shuttle</code> reach the server through Cloudflare, which handles them under the <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>. BusTrackr's server code doesn't log individual requests or store anything about visitors.</p>
+        <p>Requests to this site and to <code>/api/shuttle</code> reach the server through Cloudflare, which handles them under the <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare privacy policy</a>. The status server does not log individual requests or store visitor analytics. The separate Umami server stores the visit analytics described above.</p>
       </section>
 
       <section>
@@ -67,6 +68,13 @@
         </ul>
         <p>The server doesn't store email bodies or attachments in its history. When it must check the signature on a forwarded email, it reads the raw message, up to 2 MB, and doesn't keep it.</p>
         <p>The public feed exposes the latest observation, the number of saved alerts and the current prediction. There is no public history endpoint. History stays on the server, with no automatic deletion schedule.</p>
+      </section>
+
+      <section>
+        <h2>Optional bus notifications</h2>
+        <p>Notifications are off until you choose to enable them. The app requests notification permission and sends its push token or browser push subscription to the status server. The server stores that subscription, a hash of its management secret, its creation time, and delivery records. It does not associate the subscription with an account, name, email address or location.</p>
+        <p>New camera detections can trigger a message through your browser's push provider or the Expo Push Service and Apple or Google notification services. Those services process the push token and notification content. BusTrackr does not send you old camera history when you subscribe.</p>
+        <p>Turning notifications off removes the server subscription when the request succeeds. The app displays a failure if it cannot complete that request. Delivery records are pruned after 24 hours while notification processing runs. Subscriptions stay until you turn alerts off or the push provider reports that the device is no longer registered.</p>
       </section>
 
       <section>

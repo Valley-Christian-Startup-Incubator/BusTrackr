@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.valley.bustrackr.website-deploy</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/aimac/apps/bustrackr/deploy-website/controller.py</string>
+    <string>--root</string><string>/Users/aimac/apps/bustrackr</string>
+    <string>--node</string><string>/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin/node</string>
+    <string>--handler</string><string>/Users/aimac/apps/bustrackr/server/frontend.mjs</string>
+    <string>deploy</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin:/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>WorkingDirectory</key><string>/Users/aimac/apps/bustrackr</string>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>60</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>LimitLoadToSessionType</key><string>Background</string>
+  <key>Nice</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/Users/aimac/apps/bustrackr/logs/website-deploy.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/aimac/apps/bustrackr/logs/website-deploy.err.log</string>
+</dict>
+</plist>

@@ -23,6 +23,7 @@ jobs:
       - run: npm run check:mobile-scene
       - run: npm run website:check
       - run: npm run test:alerts
+      - run: python3 scripts/test-deploy-website.py
       - run: npm run build
       - run: npm --prefix mobile run typecheck
       - run: npm --prefix mobile run lint

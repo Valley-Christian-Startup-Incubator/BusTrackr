@@ -1,49 +1,66 @@
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {lazy, Suspense, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {ArrowUpRight,ArrowRight,BusFront,ChevronDown,Clock3,Compass,LocateFixed,MapPin,Minus,Orbit,Pause,Play,Plus,Route,RotateCcw,X,Box,Info,Maximize2,Mountain,Navigation,Trophy} from 'lucide-react';
-import {CameraPanel} from './CameraPanel';
-import type {EstimatedMarker} from './CameraPanel';
-import type {Snapshot} from './world';
-import routeData from '../public/data/routes.json';
-import './style.css';
-type World=Awaited<ReturnType<typeof import('./world').createWorld>>;
-const miniPaths=[routeData.inbound,routeData.outbound].map(points=>points.map(p=>`${(p.lon+121.843)*11000},${(37.285-p.lat)*11000}`).join(' '));
-function App(){
- const [tracking,setTracking]=useState(true);
- const estimatedMarker=useRef<EstimatedMarker|null>(null);
- const updateMarker=useCallback((marker:EstimatedMarker|null)=>{estimatedMarker.current=marker;world.current?.setEstimate(marker);},[]);
- const host=useRef<HTMLDivElement>(null),world=useRef<World|null>(null);
- const [ready,setReady]=useState(false),[error,setError]=useState(''),[selected,setSelected]=useState(0),[route,setRoute]=useState(0),[paused,setPaused]=useState(false),[speed,setSpeed]=useState(1),[info,setInfo]=useState(false),[expanded,setExpanded]=useState(false),[buildingMenu,setBuildingMenu]=useState(false),[orbitMode,setOrbitMode]=useState(false);
- const [snapshot,setSnapshot]=useState<Snapshot>({progress:[.9,.16,.44],distance:[2400,2400],fps:0,selected:0,loaded:false,pending:0,mode:'campus',speedMph:0,location:'SKYWAY CAMPUS'});
- useEffect(()=>{let gone=false;import('./world').then(({createWorld})=>createWorld(host.current!,s=>{setSnapshot(s);setSelected(s.selected);setRoute(s.selected===1?1:0);},setError)).then(w=>{if(gone){w.dispose();return;}world.current=w;setReady(true);w.setRoute(0);}).catch(e=>setError(e.message));return()=>{gone=true;world.current?.dispose();};},[]);
- useEffect(()=>{if(ready){world.current?.setTracking(tracking);world.current?.setEstimate(tracking?estimatedMarker.current:null);}},[ready,tracking]);
- const pick=(i:number)=>{setSelected(i);setRoute(i===1?1:0);world.current?.setSelected(i);world.current?.setRoute(i===1?1:0);world.current?.setFollow(true);};
- const eta=Math.max(1,Math.ceil((1-snapshot.progress[selected])*8));
- const changeRoute=(i:number)=>pick(i===1?1:0);
- return <main data-tracking={tracking?'camera':'demo'} data-view={snapshot.mode} onClick={()=>setBuildingMenu(false)} onKeyDown={e=>{if(e.key==='Escape')setBuildingMenu(false);}}><div className="world" ref={host}/><div className="map-vignette"/>
- <header><a className="brand" href={import.meta.env.BASE_URL} aria-label="BusTrackr home"><span className="brand-symbol">V<span>↗</span></span><span>Bus<span className="brand-light">Trackr</span><small>VALLEY CHRISTIAN · SAN JOSE</small></span></a><div className="header-right"><span className="scene-quality"><span className="status-dot"/>{snapshot.loaded?(tracking?'CAMERA ESTIMATES':'SIMULATED SHUTTLES'):'LOADING CAMPUS'}</span><button className="about-button" aria-label="About this prototype" onClick={()=>setInfo(true)}><Info size={19}/></button></div></header>
- <div className="scene-title"><div className="eyebrow">THE FEHREN / SKYWAY CONNECTION</div><h1>Skyway.<br/><span>Reconstructed.</span></h1><p>Our geometry. Local assets. A new perspective.</p></div>
- <nav className="view-switch" aria-label="Scene view"><button className={['overview','map'].includes(snapshot.mode)?'active':''} onClick={()=>world.current?.reset()} disabled={!ready}><Route size={15}/><span>Full route</span></button><button className={snapshot.mode==='campus'?'active':''} onClick={()=>world.current?.focusStop('campus')} disabled={!ready}><Mountain size={15}/><span>Campus</span></button><button className={['architecture','quad'].includes(snapshot.mode)?'active':''} aria-expanded={buildingMenu} aria-controls="building-menu" onClick={e=>{e.stopPropagation();setBuildingMenu(!buildingMenu);}} disabled={!ready}><Box size={15}/><span>Buildings</span></button>{buildingMenu&&<div className="building-menu" id="building-menu" onClick={e=>e.stopPropagation()}><button onClick={()=>{world.current?.inspectCampus();setBuildingMenu(false);}}>Conservatory</button><button onClick={()=>{world.current?.inspectQuad();setBuildingMenu(false);}}>Campus quad</button></div>}<button className={snapshot.mode==='facilities'?'active':''} onClick={()=>world.current?.inspectFacilities()} disabled={!ready}><Trophy size={15}/><span>Sports</span></button><button className={snapshot.mode==='lot'?'active':''} onClick={()=>world.current?.focusStop('lot')} disabled={!ready}><MapPin size={15}/><span>Fehren</span></button></nav>
- <div className="map-tools"><button className={'orbit-toggle '+(orbitMode?'active':'')} aria-label="Orbit mode" aria-pressed={orbitMode} disabled={!ready} onClick={()=>{const next=!orbitMode;setOrbitMode(next);world.current?.setOrbitMode(next);}}><Orbit size={16}/><span>{orbitMode?'Orbit':'Pan'}</span></button><button aria-label="Overhead map" title="Overhead map" onClick={()=>world.current?.setFlat(true)}><Compass size={21}/><small>N</small></button><div><button aria-label="Zoom in" onClick={()=>world.current?.zoom(.75)}><Plus size={19}/></button><button aria-label="Zoom out" onClick={()=>world.current?.zoom(1.25)}><Minus size={19}/></button></div><button aria-label="Fit full route" title="Fit route" onClick={()=>world.current?.reset()}><Maximize2 size={18}/></button></div>
- <div className="tracking-switch" role="group" aria-label="Tracking mode"><button aria-pressed={tracking} onClick={()=>setTracking(true)}>Camera estimates</button><button aria-pressed={!tracking} onClick={()=>{setPaused(false);setTracking(false);}}>Scene demo</button></div>
- {tracking&&<CameraPanel onMarker={updateMarker} onLocate={()=>world.current?.focusEstimate()}/>}
- <aside className={'ride-card '+(expanded?'expanded':'')}><button className="sheet-handle" aria-label={expanded?'Collapse shuttle details':'Expand shuttle details'} onClick={()=>setExpanded(!expanded)}><span/></button><div className="card-header"><div><span className="eyebrow">FEHREN SHUTTLE</span><h2>Next stop, {route===0?'campus.':'Fehren.'}</h2></div><span className="demo-pill"><i/> DEMO</span></div>
- <div className="route-switch" aria-label="Shuttle direction"><button className={route===0?'active':''} onClick={()=>changeRoute(0)}>To campus <ArrowUpRight size={14}/></button><button className={route===1?'active':''} onClick={()=>changeRoute(1)}>To Fehren <ArrowUpRight size={14}/></button></div>
- <div className="arrival"><div className="arrival-number">{eta}<span>min</span></div><div className="arrival-copy"><strong>Shuttle {String(selected+1).padStart(2,'0')} <span className="status-dot"/></strong><span>{route===0?'Via Senter & Diamond Heights':'Via Skyway & Monterey'}</span><small>Simulated arrival · {Math.round(snapshot.progress[selected]*100)}% of trip</small></div></div><div className="progress"><span style={{width:`${snapshot.progress[selected]*100}%`}}/></div>
- <div className="card-actions"><button className={'follow-button '+(snapshot.mode==='follow'?'active':'')} disabled={!ready} onClick={()=>world.current?.setFollow(snapshot.mode!=='follow')}><Navigation size={16}/>{snapshot.mode==='follow'?'Following shuttle':'Ride along'}<ArrowRight size={16}/></button><button className={'inspect-button '+(snapshot.mode==='bus'?'active':'')} disabled={!ready} onClick={()=>snapshot.mode==='bus'?world.current?.setFollow(true):world.current?.inspect()} aria-label="Inspect detailed bus"><BusFront size={19}/></button><button className="expand-button" aria-label={expanded?'Hide fleet':'Show fleet'} onClick={()=>setExpanded(!expanded)}><ChevronDown size={18} style={{transform:expanded?'rotate(180deg)':undefined}}/></button></div>
- <div className="fleet"><label className="trip-seek"><span>Demo trip position <output>{Math.round(snapshot.progress[selected]*100)}%</output></span><input type="range" min="0" max="100" step="1" aria-label="Demo trip position" value={Math.round(snapshot.progress[selected]*100)} disabled={!ready} onChange={e=>{const progress=Number(e.target.value)/100;setPaused(true);world.current?.setPaused(true);world.current?.seek(progress);setSnapshot(s=>({...s,progress:s.progress.map((p,i)=>i===selected?progress:p)}));}}/><small>Scrub to pause and explore any part of the trip.</small></label><div className="fleet-title"><h3>On the route</h3><span>3 simulated shuttles</span></div>{[0,1,2].map(i=><button className={'bus-row '+(selected===i?'selected':'')} key={i} onClick={()=>pick(i)}><span className="bus-icon"><BusFront size={19}/></span><span><strong>Shuttle {String(i+1).padStart(2,'0')}</strong><small>{i===1?'Skyway → Fehren':'Fehren → Skyway'}</small></span><b>{Math.max(1,Math.ceil((1-snapshot.progress[i])*8))}<small> min</small></b><ArrowUpRight size={14}/></button>)}</div>
- <div className="card-foot"><span className="status-dot"/> Simulated buses · Locally rendered scenery</div></aside>
- <div className="mini-map"><div className="mini-head"><span>THE SHUTTLE CORRIDOR</span><span>N ↑</span></div><svg viewBox="0 0 250 160" role="img" aria-label="Two bus routes between Fehren and Skyway"><defs><filter id="glow"><feGaussianBlur stdDeviation="1.5"/></filter></defs>{miniPaths.map((p,i)=><polyline key={i} points={p} fill="none" stroke={i===0?'#55d7c8':'#eab14d'} strokeWidth="2" strokeLinejoin="round"/>)}<circle cx="21" cy="7" r="3" fill="#fff"/><circle cx="184" cy="106" r="3" fill="#fff"/><text x="30" y="13">FEHREN</text><text x="190" y="121">SKYWAY</text></svg><div className="legend"><span><i/> To campus</span><span><i/> To Fehren</span></div><div className="corridor-note">Only the route + immediate surroundings</div></div>
- <div className="scene-readout"><span className="readout-line"/><div><span className="eyebrow">{snapshot.mode==='bus'?'VEHICLE DETAIL':snapshot.mode==='follow'?'ON BOARD':'EXPLORE THE CORRIDOR'}</span><strong>{snapshot.mode==='bus'?`SHUTTLE ${String(selected+1).padStart(2,'0')}`:snapshot.location}</strong></div></div>
- <div className="simulation-bar"><span className="sim-label">SIMULATION</span><button aria-label={paused?'Play simulation':'Pause simulation'} onClick={()=>{setPaused(!paused);world.current?.setPaused(!paused);}}>{paused?<Play size={15}/>:<Pause size={15}/>}</button><span className="sim-state">{paused?'Paused':snapshot.loaded?'Moving':'Loading scenery'}</span><span className="divider"/><button className="speed" aria-label="Change simulation speed" onClick={()=>{const v=speed===1?5:speed===5?20:1;setSpeed(v);world.current?.setSpeed(v);}}>{speed}×<ChevronDown size={11}/></button><button className="reset-button" aria-label="Reset view" onClick={()=>world.current?.reset()}><RotateCcw size={14}/></button></div>
- <div className="gesture">{orbitMode?'Drag to orbit':'Drag to pan'}<span/><span className="desktop-right-drag">Right-drag to tilt</span><span/>Pinch to zoom</div>
- {ready&&snapshot.pending>0&&<div className="streaming"><span className="loader"/> Refining scenery</div>}
- {(!ready||!snapshot.loaded)&&!error&&<div className="loading"><span className="loader"/><span className="eyebrow">BUILDING THE LOCAL SCENE</span><strong>Bringing Skyway into view.</strong><small>Loading terrain, campus geometry, and bus models.</small></div>}
- {error&&<div className="loading error"><Box size={25}/><strong>Local scene could not load</strong><p>{error}</p><button onClick={()=>window.location.reload()}>Reconnect <ArrowRight size={16}/></button></div>}
- {info&&<div className="modal-backdrop" onClick={()=>setInfo(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="about-title" onClick={e=>e.stopPropagation()}><button className="close" aria-label="Close about" autoFocus onClick={()=>setInfo(false)}><X size={20}/></button><div className="eyebrow">VALLEY SHUTTLE / PROTOTYPE 02</div><h2 id="about-title">An independent scene.<br/>A simulated ride.</h2><p>This experimental scene is rendered locally with Three.js. It uses our generated building meshes, facade details, vegetation, and bus model. No Google 3D tiles or Cesium service is used.</p><p>The ground is modeled terrain with separate grass, soil, paving, parking lots, paths, and sports surfaces. No aerial photographs are loaded or draped over the scene. Building footprints and routes come from OpenStreetMap; terrain and roof elevations are guided by USGS data. Public-domain imagery was used offline as a placement reference. Building shapes, facade details, landmark dimensions, road widths, and lane layouts are authored approximations. This is not a photogrammetry scan.</p><p>The three buses and trip times are simulated. The school still needs to confirm the exact service route. This is an experiment toward a self-hosted realistic scene, not yet equivalent to captured 3D scenery.</p><div className="source-links"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors <ArrowUpRight size={12}/></a><a href="https://resources.finalsite.net/images/v1700598195/vcsanjose/dl7ylcazkn69aup72dro/VCS_Shuttle_Map.pdf" target="_blank" rel="noreferrer">School shuttle map <ArrowUpRight size={12}/></a></div><button className="follow-button" onClick={()=>setInfo(false)}>Back to the route <ArrowRight size={16}/></button></section></div>}
- <div className="local-credits"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a><span> · Terrain: USGS · Modeled scenery</span></div>
- </main>;
+import {observationAge} from '../mobile/src/shuttle/observation';
+import {useCameraFeed, type CameraFeed} from './useCameraFeed';
+import {WebNotifications} from './WebNotifications';
+import './simple.css';
+
+const MapApp = lazy(() => import('./MapApp'));
+type Mode = 'simple' | 'map';
+const modeKey = 'bustrackr.view.v1';
+function initialMode(): Mode {
+  try {return localStorage.getItem(modeKey) === 'map' ? 'map' : 'simple';} catch {return 'simple';}
 }
-const root=createRoot(document.getElementById('root')!);
+function ModeControl({mode, onChange}: {mode: Mode; onChange: (mode: Mode) => void}) {
+  return <div className="mode-control" role="group" aria-label="Display mode">
+    <button type="button" aria-pressed={mode === 'simple'} onClick={() => onChange('simple')}>Simple</button>
+    <button type="button" aria-pressed={mode === 'map'} onClick={() => onChange('map')}>Map</button>
+  </div>;
+}
+function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; modeControl: React.ReactNode; settingError: string}) {
+  const {feed, fresh, error, now, refresh} = camera;
+  const age = observationAge(feed?.latest?.eventAt, now);
+  const sample = feed?.status === 'sample';
+  const status = feed && !fresh ? 'Offline. A newer bus may have passed.' : error && !feed ? 'Feed unavailable. No saved sighting is available.' : error || (!feed ? 'Checking the feed…' : sample ? 'Sample data. Not a real bus sighting.' : `Live · checked ${new Date(feed.lastCheckedAt!).toLocaleTimeString('en-US', {timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit'})}`);
+  return <main className="simple-screen" data-mode="simple">
+    <header className="simple-header">
+      <a className="simple-brand" href={import.meta.env.BASE_URL} aria-label="BusTrackr home">BusTrackr<span>Fehren ↔ Skyway</span></a>
+      {modeControl}
+    </header>
+    <section className="simple-observation" aria-label="Last bus detection">
+      {sample && <p className="simple-sample">Sample data</p>}
+      <h1>The last Fehren bus<br/>was detected</h1>
+      {age.kind === 'observed' ? <div className="simple-age" aria-label={`${age.minutes} ${age.minutes === 1 ? 'minute' : 'minutes'} ago`}>
+        <span className="simple-number" data-digits={String(age.minutes).length} data-testid="observation-minutes" style={{color: fresh ? age.color : '#53645c'}}>{age.minutes.toLocaleString()}</span>
+        <span className="simple-unit">{age.minutes === 1 ? 'minute' : 'minutes'} ago</span>
+      </div> : <p className="simple-empty">{age.kind === 'clock-error' ? 'Camera clock is ahead' : !feed && !error ? 'Checking the feed…' : feed?.latest ? 'Camera time unavailable' : !feed ? 'No observation available' : 'No bus detected yet'}</p>}
+      {age.kind === 'observed' && <p className="simple-time">{age.minutes === 0 ? 'Less than a minute ago · ' : ''}<time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
+      {age.kind === 'observed' && <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>}
+    </section>
+    <footer className="simple-footer">
+      <div className="simple-feed-status"><p role="status">{status}</p><button type="button" onClick={refresh} aria-label="Refresh feed">Refresh</button></div>
+      {settingError && <p role="alert">{settingError}</p>}
+    </footer>
+  </main>;
+}
+function App() {
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [settingError, setSettingError] = useState('');
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const camera = useCameraFeed();
+  function changeMode(next: Mode) {
+    setMode(next);
+    try {localStorage.setItem(modeKey, next); setSettingError('');} catch {setSettingError('This mode works now but could not be saved.');}
+  }
+  const modeControl = <div className="view-controls"><ModeControl mode={mode} onChange={changeMode}/>{mode === 'map' && <button type="button" className="alerts-button" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(value => !value)}>Alerts</button>}</div>;
+  return <div className="app-shell" data-mode={mode}>
+    {mode === 'simple' ? <SimpleScreen camera={camera} modeControl={modeControl} settingError={settingError}/> : <Suspense fallback={<div className="map-opening">{modeControl}<p>Opening the map…</p></div>}><MapApp camera={camera} modeControl={modeControl}/></Suspense>}
+    <div className="notification-dock" hidden={mode === 'map' && !alertsOpen}>
+      <WebNotifications sample={camera.feed?.status === 'sample'}/>
+      {mode === 'simple' && <p className="simple-note">Time since camera detection, not an arrival estimate.</p>}
+    </div>
+  </div>;
+}
+const root = createRoot(document.getElementById('root')!);
 root.render(<App/>);
-if(import.meta.hot)import.meta.hot.dispose(()=>root.unmount());
+if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());

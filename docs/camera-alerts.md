@@ -84,11 +84,13 @@ In the mobile app's **Connection settings**, enter `https://bustrackr.valleychri
 
 For the web frontend, copy root `.env.example` to `.env.local`, set `VITE_ALERT_API_URL=https://bustrackr.valleychristianai.com/api/shuttle`, and rebuild/redeploy the frontend. For CI builds, set the variable in that build environment. Both client variables are public; never put Resend credentials in them.
 
+Simple mode shows elapsed minutes since the last sighting without requiring a timetable. Both clients remember the Simple or Map selection. See [notification setup](notifications.md) for optional browser and native push alerts.
+
 A working feed supplies observations. Position estimates also require the confirmed timetable described below; the checked-in schedule is intentionally empty and unconfirmed.
 
 ### Templates, persistence and operations
 
-Commit example files, never filled-in files. Root `.env.server.example` is the backend template; root `.env.example` and `mobile/.env.example` contain only public client settings. `hosting/` retains the old Vercel implementation for reference and is not used in production.
+Commit example files, never filled-in files. Root `.env.server.example` is the backend template; root `.env.example` and `mobile/.env.example` contain only public client settings. The retired Vercel deployment sources have been removed. Production does not depend on Vercel.
 
 The backend uses a private Node 24.22.1 runtime at `/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64`. It does not change the system Node version. State lives at `/Users/aimac/apps/bustrackr/.data/alerts.json` and survives service restarts and deployments. Keep this directory and `.env.server` when updating code. Back up the state file as part of the machine's backup policy; no off-machine backup has been configured by this deployment.
 
@@ -99,13 +101,13 @@ ssh valley-big-mac 'launchctl print user/$(id -u)/com.valley.bustrackr; launchct
 ssh valley-big-mac 'tail -n 50 ~/apps/bustrackr/logs/com.valley.bustrackr.err.log'
 ```
 
-The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards only `bustrackr.valleychristianai.com` to `127.0.0.1:18787`. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
+The tunnel configuration is `/Users/aimac/.cloudflared/bustrackr.yml`. It forwards `bustrackr.valleychristianai.com` and `bustracker.valleychristianai.com` to the frontend on `127.0.0.1:18788`, which forwards API requests to the single camera worker on `127.0.0.1:18787`. The second hostname keeps posted campaign links working without removing their query parameters. The tunnel credentials remain on the Mac. Deployment manifests and the minimal backend dependency lockfile are in `deploy/`.
 
 To update backend code from the repository root:
 
 ```sh
 npm run test:alerts
-scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
+scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/notifications.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
 scp deploy/package.json deploy/package-lock.json valley-big-mac:apps/bustrackr/
 ssh valley-big-mac 'cd ~/apps/bustrackr && PATH="$HOME/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin:$PATH" npm ci --omit=dev --ignore-scripts && launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
 ```
@@ -178,24 +180,26 @@ On November 1, the October 30 camera alert was recovered after fixing optional t
 
 The same worker serves the product website at `https://bustrackr.valleychristianai.com/`. `/api/*` remains reserved for backend requests. Website source is in `website/`; the static handler only serves public web file types and rejects hidden files and symlinks escaping that directory.
 
-Deploy website changes from the repository root:
+Deploy the website and map with the [atomic release controller](website-deployment.md). It validates a separate release, retains versioned assets, switches the website root atomically, and rolls back if public checks fail. Website updates must not restart the camera worker, frontend, or Cloudflare tunnel. Do not copy files over a live release. Backend upgrades remain separate because camera and notification state have one writer.
 
-```sh
-npm run website:prepare
-npm run website:check
-scp -r website valley-big-mac:apps/bustrackr/
-scp server/index.mjs server/website.mjs valley-big-mac:apps/bustrackr/server/
-ssh valley-big-mac 'launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
-```
+Keep credentials, history, and logs outside every website release. Verify both public hostnames, the map, and `/api/health` after deployment.
 
-Keep credentials, history and logs outside `website/`. Verify the home page, privacy/support pages and `/api/health` after deploying.
-
-### SSH connection reliability
+## SSH connection reliability
 
 The local `valley-big-mac` SSH entry uses `IPQoS none`, a 30-second connection timeout, and automatic connection reuse (`ControlMaster auto`, `ControlPersist 600`, `ControlPath ~/.ssh/cm-%C`). These settings restored responsive access during the November 1 deployment. Authentication and host-key verification remain enabled. The previous SSH configuration was backed up locally before editing. If a tunnel is slow, reuse an authenticated connection rather than opening many parallel SSH handshakes.
 
-The server logs subsequently identified repeated QUIC edge timeouts. Both BusTrackr and SSH now use `protocol: http2` (TCP) in their Cloudflare Tunnel configuration. SSH has a dedicated tunnel, `vcs-ssh` (`47e0adb0-6073-404f-88f8-359a1ea0adb0`), and LaunchAgent `com.cloudflare.vcs-ssh`, rather than sharing the older `vcs-mac-studio` tunnel. Its ingress is `ssh://127.0.0.1:22`; the existing Cloudflare Access login and SSH key checks still apply. The old shared tunnel and its other service routes were left running. Manifests are in `deploy/vcs-ssh.yml` and `deploy/com.cloudflare.vcs-ssh.plist`. Credentials remain only on the Mac.
+The server logs subsequently identified repeated QUIC edge timeouts. The November 1 configuration used `protocol: http2` (TCP) for BusTrackr and SSH. On November 2 the global HTTP/2 BusTrackr connections failed, while a US-region QUIC connector restored public access. BusTrackr now uses `protocol: quic`, `region: us`, and IPv4; SSH retains its separate HTTP/2 configuration. SSH has a dedicated tunnel, `vcs-ssh` (`47e0adb0-6073-404f-88f8-359a1ea0adb0`), and LaunchAgent `com.cloudflare.vcs-ssh`, rather than sharing the older `vcs-mac-studio` tunnel. Its ingress is `ssh://127.0.0.1:22`; the existing Cloudflare Access login and SSH key checks still apply. The old shared tunnel and its other service routes were left running. Manifests are in `deploy/vcs-ssh.yml` and `deploy/com.cloudflare.vcs-ssh.plist`. Credentials remain only on the Mac.
 
 Rollback, if ever needed: route `ssh.valleychristianai.com` back to tunnel `393fc0ab-4a84-460e-9734-adfbe53c6929` from the Mac using its original Cloudflare configuration. Do not stop the dedicated SSH tunnel until the replacement route is verified.
 
 Website CSS and JavaScript use content-hashed filenames. After editing `website/style.css` or `website/site.js`, run `npm run website:prepare` and commit the generated files and updated HTML together. Upload assets before HTML. Keep previously deployed hashed assets available for clients with older documents. HTML is served with `no-store`; versioned assets can be cached immutably without mixing releases.
+
+## Website analytics
+
+The website uses the existing self-hosted Umami instance at `https://analytics.bryanhu.com` on SSH host `big-mac`. Its BusTrackr website ID is `5eaf2f91-0cd8-48ce-84b1-1cc3244cf436`. The public website ID is safe to include in HTML. Keep dashboard credentials on the analytics host.
+
+The three HTML pages in `website/` include the tracker. The root React entry HTML includes the same tracker when built into the self-hosted `/BusTrackr/` map. The tracker restricts collection to the production domains, retains query parameters for UTM attribution, and excludes URL hashes. Local development does not send pageviews. The native apps have no analytics SDK.
+
+Run `node scripts/check-analytics.mjs` to verify an accepted browser pageview with a unique verification campaign. Pass a URL as the first argument to check another deployment. The check uses a regular browser user agent because Umami filters headless browser traffic as bots. Confirm the campaign appears in Umami as well. An HTTP 200 response alone does not prove that Umami stored an event.
+
+The Instagram story uses `utm_source=instagram&utm_campaign=simple-bryan-story`. Both public hostnames serve the website. The alias was added to the existing BusTrackr Cloudflare tunnel and DNS without changing the backend.

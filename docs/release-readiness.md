@@ -18,6 +18,10 @@ Audit: November 1, 2026. This is a working prototype with a live camera observat
 5. Prepare store screenshots, descriptions, age/content ratings, privacy disclosures, support details and review instructions. Review the website privacy text against actual operations before using it as the store policy. Identify a responsible operator/support owner and confirm school branding/route permissions.
 6. Set operational ownership: restart after machine reboot, alerting on backend/tunnel failure, off-machine state backups and restore drill. Current LaunchAgents restart failed processes, but unattended startup before user login is not configured.
 
+## Local feature work on November 2
+
+Simple mode and optional Web Push and Expo push support are implemented in source. The notification backend is deployed on valley-big-mac. The Simple mode web release is being verified separately. Real background notification receipt still requires a configured deployment and device verification. The mobile project also needs its EAS project ID, signing and push credentials, and a rebuilt binary. See [notification setup](notifications.md).
+
 ## Site
 
 The product website is live at https://bustrackr.valleychristianai.com/, with `/api/*` reserved for the service. Published November 1 after restoring SSH access using `IPQoS none` and persistent connection reuse. It links to the existing 3D web prototype and clearly states native store availability. See `website/` for source. Deploy site files together with `server/website.mjs` and restart the worker; never copy server environment files into the website directory.
