@@ -19,7 +19,7 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const local = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({headless:true, args:['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
-async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false} = {}) {
+async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0} = {}) {
   const context = await browser.newContext({viewport:{width:1280,height:900}, userAgent:'BusTrackrAnalyticsCheck/1'});
   const events = [], errors = [], subscriptions = [];
   if (cryptoFailure) await context.addInitScript(() => {Object.defineProperty(crypto,'randomUUID',{value:()=>{throw new Error('disabled');}});Object.defineProperty(crypto,'getRandomValues',{value:()=>{throw new Error('disabled');}});});
@@ -44,6 +44,7 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
         if (delayed) await gate;
         return route.fulfill({contentType:'text/javascript', body:tracker});
       }
+      if (collectionDelay) await new Promise(resolve=>setTimeout(resolve,collectionDelay));
       events.push(route.request().postDataJSON());
       return route.fulfill({contentType:'application/json', body:'{"cache":"check"}'});
     }
@@ -62,6 +63,14 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
 }
 const pageviews = events => events.filter(e => e.type === 'event' && !e.payload.name);
 const clicks = (events, control) => events.filter(e => e.payload.name === 'ui_click' && e.payload.data.control === control);
+async function waitForCollection(predicate) {
+  const deadline=Date.now()+10_000;
+  while (!predicate()) {
+    assert(Date.now()<deadline,'Expected analytics event did not reach the collector');
+    await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  await new Promise(resolve=>setTimeout(resolve,200));
+}
 async function audit(page) {
   assert.deepEqual(await page.locator('button,a,input[type=range],select').evaluateAll(elements=>elements.filter(e=>!e.hasAttribute('data-analytics')).map(e=>e.outerHTML)), [], 'All rendered controls have stable metadata');
 }
@@ -69,7 +78,7 @@ try {
   const a=await setup();
   await a.page.goto(origin+'/?utm_source=instagram&utm_campaign=simple-bryan-story&secret=private#hidden');
   await a.page.waitForFunction(()=>!!window.umami);
-  await a.page.waitForTimeout(100);
+  await waitForCollection(()=>pageviews(a.events).length>=1);
   assert.equal(pageviews(a.events).length,1);
   const id=pageviews(a.events)[0].payload.id;
   assert.match(id,/^[a-f0-9-]{36}$/);
@@ -77,14 +86,16 @@ try {
   assert(!JSON.stringify(a.events).includes('private'));
   assert(!JSON.stringify(a.events).includes('hidden'));
   for (const path of ['/support.html','/privacy.html','/BusTrackr/']) {
+    const previous=pageviews(a.events).length;
     await a.page.goto(origin+path);await audit(a.page);
-    await a.page.waitForTimeout(100);
+    await waitForCollection(()=>pageviews(a.events).length>previous);
     assert.equal(pageviews(a.events).at(-1).payload.id,id,'ID survives navigation');
   }
-  await a.page.reload();await a.page.waitForTimeout(100);
+  const beforeReload=pageviews(a.events).length;
+  await a.page.reload();await waitForCollection(()=>pageviews(a.events).length>beforeReload);
   assert.equal(pageviews(a.events).at(-1).payload.id,id,'ID survives reload');
   await a.page.locator('[data-analytics="feed_refresh"]').focus();await a.page.keyboard.press('Enter');
-  await a.page.waitForTimeout(50);assert.equal(clicks(a.events,'feed_refresh').length,1);
+  await waitForCollection(()=>clicks(a.events,'feed_refresh').length>=1);assert.equal(clicks(a.events,'feed_refresh').length,1);
   console.log('Native identity and static pages passed.');
   await a.page.locator('[data-analytics="mode_map"]').click();
   await a.page.locator('[data-analytics="about_open"]').waitFor().catch(async e=>{console.error(await a.page.locator('body').innerText());throw e;});await audit(a.page);
@@ -99,7 +110,7 @@ try {
   await a.page.locator('[data-analytics="tracking_demo"]').click();
   await a.page.locator('[data-analytics="fleet_toggle"]').click();await audit(a.page);
   await a.page.locator('[data-analytics="trip_seek"]').evaluate(e=>{e.value='50';for(let i=0;i<5;i++)e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));});
-  await a.page.waitForTimeout(100);
+  await waitForCollection(()=>clicks(a.events,'about_open').length>=1&&clicks(a.events,'view_quad').length>=1&&a.events.some(e=>e.payload.name==='ui_change'));
   assert.equal(clicks(a.events,'about_open').length,1,'Nested SVG emits once');
   assert.equal(clicks(a.events,'view_quad').length,1,'React stopPropagation does not suppress capture');
   assert.equal(a.events.filter(e=>e.payload.name==='ui_change').length,1,'Committed change emits once');
@@ -113,18 +124,18 @@ try {
   for(const file of files) for(const match of (await readFile(new URL(file,root),'utf8')).matchAll(/data-analytics="([^"]+)"/g)) ids.add(match[1]);
   await coverage.page.addScriptTag({content:await readFile(new URL('public/analytics.js',root),'utf8')});
   await coverage.page.evaluate(ids=>{for(const id of ids){const e=document.createElement(id==='trip_seek'?'input':'button');if(id==='trip_seek')e.type='range';e.dataset.analytics=id;document.body.append(e);e.dispatchEvent(new Event(id==='trip_seek'?'change':'click',{bubbles:true}));e.remove();}},[...ids]);
-  await coverage.page.waitForTimeout(100);
+  await waitForCollection(()=>coverage.events.filter(e=>e.payload.name?.startsWith('ui_')).length>=ids.size);
   assert.deepEqual(coverage.events.filter(e=>e.payload.name?.startsWith('ui_')).map(e=>e.payload.data.control).sort(),[...ids].sort(),'Every source control is accepted exactly once, including duplicated bootstrap');
-  const noCrypto=await setup({cryptoFailure:true});await noCrypto.page.goto(origin+'/');await noCrypto.page.waitForTimeout(100);assert.deepEqual(noCrypto.errors,[]);assert.equal(pageviews(noCrypto.events).length,1);
-  const b=await setup();await b.page.goto(origin+'/');await b.page.waitForTimeout(100);
+  const noCrypto=await setup({cryptoFailure:true});await noCrypto.page.goto(origin+'/');await waitForCollection(()=>pageviews(noCrypto.events).length>=1);assert.deepEqual(noCrypto.errors,[]);assert.equal(pageviews(noCrypto.events).length,1);
+  const b=await setup({collectionDelay:250});await b.page.goto(origin+'/');await waitForCollection(()=>pageviews(b.events).length>=1);
   assert.notEqual(pageviews(b.events)[0].payload.id,id,'Same UA different browser profile stays distinct');
-  const c=await setup({storageBlocked:true});await c.page.goto(origin+'/');await c.page.waitForTimeout(100);
+  const c=await setup({storageBlocked:true});await c.page.goto(origin+'/');await waitForCollection(()=>pageviews(c.events).length>=1);
   assert.match(pageviews(c.events)[0].payload.id,/^[a-f0-9-]{36}$/);assert.deepEqual(c.errors,[]);
   const delayed=await setup({delayed:true});
   await delayed.page.goto(origin+'/',{waitUntil:'commit'});
   await delayed.page.waitForFunction(()=>!!window.BusTrackrAnalytics);
   await delayed.page.evaluate(()=>{for(let i=0;i<70;i++)document.querySelector('[data-analytics="nav_sightings"]').click();window.BusTrackrAnalytics.track('arbitrary_secret','sensitive');});
-  delayed.release();await delayed.page.waitForLoadState('load');await delayed.page.waitForTimeout(200);
+  delayed.release();await delayed.page.waitForLoadState('load');await waitForCollection(()=>clicks(delayed.events,'nav_sightings').length>=50);
   assert.equal(clicks(delayed.events,'nav_sightings').length,50,'FIFO is bounded to latest 50');
   assert(!JSON.stringify(delayed.events).includes('sensitive'));
   const blocked=await setup({blocked:true});await blocked.page.goto(origin+'/');
@@ -135,13 +146,13 @@ try {
   }
   console.log('Registry, randomness, queue and fallback checks passed.');
   const delayedApp=await setup({delayed:true});await delayedApp.page.goto(origin+'/BusTrackr/',{waitUntil:'domcontentloaded'});
-  await delayedApp.page.locator('.simple-screen').waitFor();await delayedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.equal(delayedApp.events.length,0);delayedApp.release();await delayedApp.page.waitForLoadState('load');await delayedApp.page.waitForTimeout(100);assert.equal(clicks(delayedApp.events,'feed_refresh').length,1);assert.equal(delayedApp.events.filter(e=>e.payload.name==='app_view').length,1);
+  await delayedApp.page.locator('.simple-screen').waitFor();await delayedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.equal(delayedApp.events.length,0);delayedApp.release();await delayedApp.page.waitForLoadState('load');await waitForCollection(()=>clicks(delayedApp.events,'feed_refresh').length>=1&&delayedApp.events.some(e=>e.payload.name==='app_view'));assert.equal(clicks(delayedApp.events,'feed_refresh').length,1);assert.equal(delayedApp.events.filter(e=>e.payload.name==='app_view').length,1);
   const blockedApp=await setup({blocked:true});await blockedApp.page.goto(origin+'/BusTrackr/');await blockedApp.page.locator('.simple-screen').waitFor();await blockedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.deepEqual(blockedApp.errors,[]);
   const expired=await setup({delayed:true});await expired.page.clock.install();await expired.page.goto(origin+'/',{waitUntil:'commit'});await expired.page.waitForFunction(()=>!!window.BusTrackrAnalytics);
-  await expired.page.locator('[data-analytics="nav_sightings"]').click();await expired.page.clock.fastForward(31_000);expired.release();await expired.page.waitForLoadState('load');await expired.page.waitForTimeout(50);
+  await expired.page.locator('[data-analytics="nav_sightings"]').click();await expired.page.clock.fastForward(31_000);expired.release();await expired.page.waitForLoadState('load');await waitForCollection(()=>pageviews(expired.events).length>=1);await expired.page.waitForTimeout(50);
   assert.equal(clicks(expired.events,'nav_sightings').length,0,'Expired queue is discarded');
-  await expired.page.locator('[data-analytics="nav_sightings"]').click();await expired.page.waitForTimeout(50);assert.equal(clicks(expired.events,'nav_sightings').length,1,'Late tracker accepts future events');
-  const marker=await setup();await marker.page.goto(origin+'/BusTrackr/?notification_open=1');await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);assert(!marker.page.url().includes('notification_open'));await marker.page.reload();await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);
+  await expired.page.locator('[data-analytics="nav_sightings"]').click();await waitForCollection(()=>clicks(expired.events,'nav_sightings').length>=1);assert.equal(clicks(expired.events,'nav_sightings').length,1,'Late tracker accepts future events');
+  const marker=await setup();await marker.page.goto(origin+'/BusTrackr/?notification_open=1');await waitForCollection(()=>marker.events.some(e=>e.payload.name==='notification_open'));assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);assert(!marker.page.url().includes('notification_open'));await marker.page.reload();await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);
   await marker.page.evaluate(()=>window.dispatchEvent(new MessageEvent('message',{origin:location.origin,data:{type:'bustrackr_notification_open'},source:window})));await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1,'Window messages cannot impersonate worker opens');
   const opt=await setup({optedOut:true});await opt.page.goto(origin+'/');await opt.page.waitForTimeout(100);
   assert.equal(await opt.page.evaluate(()=>localStorage.getItem('bustrackr.analytics.browser.v1')),null);assert.equal(opt.events.length,0);
@@ -150,13 +161,13 @@ try {
   await notice.page.getByRole('button',{name:'Notify me',exact:true}).click();
   await notice.page.getByRole('button',{name:'Notifications on',exact:true}).waitFor();
   await notice.page.getByRole('button',{name:'Notifications on',exact:true}).click();
-  await notice.page.getByRole('button',{name:'Notify me',exact:true}).waitFor();await notice.page.waitForTimeout(100);
+  await notice.page.getByRole('button',{name:'Notify me',exact:true}).waitFor();await waitForCollection(()=>notice.events.some(e=>e.payload.name==='notification_disabled'));
   assert.deepEqual(notice.subscriptions,['POST','DELETE']);
   assert.deepEqual(notice.events.filter(e=>e.payload.name?.startsWith('notification_')).map(e=>[e.payload.name,e.payload.data.value]),[['notification_permission','granted'],['notification_enabled',undefined],['notification_disabled',undefined]]);
   assert(!JSON.stringify(notice.events).includes('private-'));
   const failure=await setup({notifications:true,failSubscription:true});await failure.page.goto(origin+'/BusTrackr/');
   await failure.page.getByRole('button',{name:'Notify me',exact:true}).click();
-  await failure.page.getByRole('button',{name:'Retry enabling',exact:true}).waitFor();await audit(failure.page);await failure.page.waitForTimeout(100);
+  await failure.page.getByRole('button',{name:'Retry enabling',exact:true}).waitFor();await audit(failure.page);await waitForCollection(()=>failure.events.some(e=>e.payload.name==='notification_failure'));
   assert.equal(failure.events.filter(e=>e.payload.name==='notification_enabled').length,0);
   assert.equal(failure.events.find(e=>e.payload.name==='notification_failure').payload.data.value,'enable');
   const localhost=await browser.newPage();await localhost.goto(local+'/');
