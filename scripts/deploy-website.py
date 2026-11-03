@@ -149,7 +149,7 @@ class Deployer:
     def retain_assets(self, candidate):
         registry = self.home / 'assets'
         registry.mkdir(exist_ok=True)
-        roots = [candidate] + [path / 'website' for path in self.releases.iterdir() if (path / 'website').is_dir()]
+        roots = [candidate]
         if self.live.is_dir():
             roots.append(self.live.resolve())
         for root in roots:
@@ -330,6 +330,8 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
                     runtime = Path(shutil.which(self.node) or self.node).resolve().parent
                     environment = dict(os.environ, VITE_ALERT_API_URL='/api/shuttle', PATH=str(runtime) + os.pathsep + os.environ.get('PATH', ''))
                     subprocess.run(['npm', 'ci', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
+                    if (release / 'mobile/package-lock.json').exists():
+                        subprocess.run(['npm', 'ci', '--prefix', 'mobile', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
                     subprocess.run(['npm', 'run', 'build'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
                 shutil.copytree(release / 'dist', release / 'website/BusTrackr')
             self.validate(release, commit)

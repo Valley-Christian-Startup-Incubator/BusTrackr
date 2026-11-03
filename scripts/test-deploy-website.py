@@ -145,6 +145,75 @@ const worker=createServer((req,res)=>{
         self.assertIsNone(self.deploy())
         self.assertIn('first', self.request())
 
+    def test_failed_adoption_cannot_poison_the_next_attempt(self):
+        corrupt = self.root / 'website/extra.0000000000000000.js'
+        corrupt.write_text('corrupt asset')
+        with self.assertRaisesRegex(RuntimeError, 'asset hash mismatch'):
+            self.adopt()
+        self.assertFalse(self.deployer.live.is_symlink())
+        corrupt.unlink()
+        adopted = self.adopt()
+        self.assertEqual(self.deployer.state()['active'], adopted)
+        self.assertIn('first', self.request())
+
+    def test_map_build_installs_locked_mobile_dependencies(self):
+        self.adopt()
+        (self.source / 'package.json').write_text('{}')
+        (self.source / 'mobile').mkdir()
+        (self.source / 'mobile/package-lock.json').write_text('{}')
+        self.commit()
+        binaries = self.base / 'bin'
+        binaries.mkdir()
+        node = binaries / 'node'
+        node.write_text('#!/bin/sh\nexec ' + shutil.which('node') + ' "$@"\n')
+        node.chmod(0o755)
+        installed = self.base / 'npm-calls.jsonl'
+        npm = binaries / 'npm'
+        npm.write_text(r"""#!/usr/bin/env python3
+import json
+from pathlib import Path
+import sys
+with Path(%r).open('a') as handle:
+    handle.write(json.dumps(sys.argv[1:]) + '\n')
+if sys.argv[1:] == ['run', 'build']:
+    calls = [json.loads(line) for line in Path(%r).read_text().splitlines()]
+    if ['ci', '--prefix', 'mobile', '--ignore-scripts'] not in calls:
+        raise SystemExit('Missing expo/tsconfig.base dependency installation')
+    Path('dist').mkdir()
+    Path('dist/index.html').write_text('<html><head></head><body>map fixture</body></html>')
+""" % (str(installed), str(installed)))
+        npm.chmod(0o755)
+        self.deployer.node = str(node)
+        self.deploy()
+        self.assertIn('map fixture', self.request('/BusTrackr/'))
+        self.assertEqual([json.loads(line) for line in installed.read_text().splitlines()], [
+            ['ci', '--ignore-scripts'], ['ci', '--prefix', 'mobile', '--ignore-scripts'], ['run', 'build'],
+        ])
+
+    def test_corrupt_candidate_cannot_block_a_later_release(self):
+        self.adopt()
+        corrupt = self.source / 'website/extra.0000000000000000.js'
+        corrupt.write_text('corrupt asset')
+        self.commit()
+        with self.assertRaisesRegex(RuntimeError, 'asset hash mismatch'):
+            self.deploy()
+        corrupt.unlink()
+        self.write_site('second')
+        good = self.commit()
+        self.assertEqual(self.deploy()['commit'], good)
+        self.assertIn('second', self.request())
+        artifact = self.base / 'built-site'
+        shutil.copytree(self.deployer.live, artifact)
+        corrupt = artifact / 'extra.0000000000000000.js'
+        corrupt.write_text('corrupt artifact asset')
+        with self.deployer.locked(), self.assertRaisesRegex(RuntimeError, 'asset hash mismatch'):
+            self.deployer.artifact(artifact)
+        corrupt.unlink()
+        with self.deployer.locked():
+            published = self.deployer.artifact(artifact)
+        self.assertEqual(self.deployer.state()['active'], published)
+        self.assertIn('second', self.request())
+
     def test_failed_public_probe_rolls_back(self):
         before = self.adopt()
         self.write_site('second')
