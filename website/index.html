@@ -97,8 +97,11 @@
 
   <script src="site.3e837ac6a9c78e81.js"></script>
   <script>
-    (async () => {
-      const text = (id, value) => { document.getElementById(id).textContent = value; };
+    (() => {
+      const text = (id, value) => {
+        const element = document.getElementById(id);
+        if (element.textContent !== value) element.textContent = value;
+      };
       const pacific = {timeZone: 'America/Los_Angeles'};
       const when = stamp => new Date(stamp).toLocaleString('en-US', {...pacific, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
       const clock = stamp => new Date(stamp).toLocaleTimeString('en-US', {...pacific, hour: 'numeric', minute: '2-digit', timeZoneName: 'short'});
@@ -133,32 +136,70 @@
         return {time: when(stamp), place: `${latest.checkpoint}, ${ago(stamp)}`, live: `Last sighting: ${latest.checkpoint}, ${ago(stamp)}`};
       };
 
-      show({time: 'Checking…', place: 'Asking the status feed.', live: 'Checking live status…', feed: 'Checking…', estimate: 'Checking…'});
-      const abort = new AbortController();
-      const timeout = setTimeout(() => abort.abort(), 10000);
-      try {
-        const response = await fetch('/api/shuttle', {cache: 'no-store', headers: {accept: 'application/json'}, signal: abort.signal});
-        if (!response.ok) throw new Error('Status request failed');
-        const feed = await response.json();
-        if (!['connected', 'connecting', 'disconnected', 'sample'].includes(feed.status) || typeof feed.eventCount !== 'number') throw new Error('Unexpected status response');
-        if (feed.status === 'sample') {
-          show({time: 'Sample data', place: 'Illustrative only, not a real sighting.', live: 'Showing sample data, not a real sighting', feed: 'Sample data', estimate: 'Off: sample data'});
+      let lastSighting = null;
+      let lastReached = null;
+      let pending = false;
+      let refreshTimer;
+      let failures = 0;
+      const retryDelays = [2000, 5000, 15000, 30000];
+      const refresh = async () => {
+        if (pending || document.hidden) return;
+        clearTimeout(refreshTimer);
+        if (!navigator.onLine) {
+          show({
+            ...(lastSighting ? sighting(lastSighting) : {time: 'Unavailable', place: 'Waiting for an internet connection.', live: "You're offline"}),
+            feed: "You're offline. Will refresh when you reconnect.",
+            estimate: 'Off: feed unavailable',
+          });
           return;
         }
-        const checked = Date.parse(feed.lastCheckedAt);
-        const age = Date.now() - checked;
-        const connected = feed.status === 'connected';
-        const current = connected && age >= -30000 && age <= 120000;
-        show({
-          ...sighting(feed.latest),
-          feed: current ? `Connected, checked ${clock(checked)}` : connected ? 'Out of date' : 'Unavailable',
-          estimate: current ? estimates[feed.prediction?.status] ?? 'Unavailable' : 'Off: feed not current',
-        });
-      } catch {
-        show({time: 'Unavailable', place: "The status feed can't be reached right now.", live: 'Live status unavailable', feed: 'Unavailable', estimate: 'Off: feed unavailable'});
-      } finally {
-        clearTimeout(timeout);
-      }
+        pending = true;
+        const abort = new AbortController();
+        const timeout = setTimeout(() => abort.abort(), 10000);
+        try {
+          const response = await fetch('/api/shuttle', {cache: 'no-store', headers: {accept: 'application/json'}, signal: abort.signal});
+          if (!response.ok) throw new Error('Status request failed');
+          const feed = await response.json();
+          if (!['connected', 'connecting', 'disconnected', 'sample'].includes(feed.status) || typeof feed.eventCount !== 'number') throw new Error('Unexpected status response');
+          if (feed.status === 'sample') {
+            lastSighting = null;
+            show({time: 'Sample data', place: 'Illustrative only, not a real sighting.', live: 'Showing sample data, not a real sighting', feed: 'Sample data', estimate: 'Off: sample data'});
+          } else {
+            const observation = sighting(feed.latest);
+            const checked = Date.parse(feed.lastCheckedAt);
+            const age = Date.now() - checked;
+            const connected = feed.status === 'connected';
+            const current = connected && age >= -30000 && age <= 120000;
+            lastSighting = feed.latest;
+            show({
+              ...observation,
+              feed: current ? `Connected, checked ${clock(checked)}` : connected ? 'Out of date' : 'Unavailable',
+              estimate: current ? estimates[feed.prediction?.status] ?? 'Unavailable' : 'Off: feed not current',
+            });
+          }
+          lastReached = Date.now();
+          failures = 0;
+        } catch {
+          failures++;
+          if (lastReached || failures > 1) show({
+            ...(lastSighting ? sighting(lastSighting) : {time: 'Unavailable', place: "The status feed isn't answering. Trying again shortly.", live: 'Live status unavailable. Retrying…'}),
+            feed: lastReached ? `Last reached ${clock(lastReached)}. Retrying…` : 'Not responding. Retrying…',
+            estimate: 'Off: feed unavailable',
+          });
+        } finally {
+          clearTimeout(timeout);
+          pending = false;
+          if (!document.hidden) refreshTimer = setTimeout(refresh, failures ? retryDelays[Math.min(failures - 1, retryDelays.length - 1)] : 30000);
+        }
+      };
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearTimeout(refreshTimer);
+        else refresh();
+      });
+      window.addEventListener('online', refresh);
+      window.addEventListener('pageshow', event => { if (event.persisted) refresh(); });
+      show({time: 'Checking…', place: 'Asking the status feed.', live: 'Checking live status…', feed: 'Checking…', estimate: 'Checking…'});
+      refresh();
     })();
   </script>
 </body>
