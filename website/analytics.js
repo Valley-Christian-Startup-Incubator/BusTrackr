@@ -79,6 +79,13 @@
     status = window.umami?.track ? 'ready' : 'failed';
     if (status === 'ready' && Date.now() < expires) for (const event of pending) send(event);
     pending.length = 0;
+    if (status === 'ready' && location.href === cleanURL(location.href, true)) {
+      const recorder = document.createElement('script');
+      recorder.async = true;
+      recorder.src = 'https://analytics.valleychristianai.com/recorder.js';
+      recorder.setAttribute('data-website-id', script.getAttribute('data-website-id'));
+      document.head.append(recorder);
+    }
   }, {once: true});
   script.addEventListener('error', () => {clearTimeout(timeout); status = 'failed'; pending.length = 0;}, {once: true});
   window.BusTrackrAnalytics = Object.freeze({track(name, value) {

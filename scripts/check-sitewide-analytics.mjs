@@ -19,9 +19,9 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const local = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({headless:true, args:['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
-async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0, staleBootstrap=false} = {}) {
+async function setup({blocked=false, delayed=false, storageBlocked=false, optedOut=false, notifications=false, failSubscription=false, cryptoFailure=false, collectionDelay=0, staleBootstrap=false, recorderDelayed=false, recorderBlocked=false} = {}) {
   const context = await browser.newContext({viewport:{width:1280,height:900}, userAgent:'BusTrackrAnalyticsCheck/1'});
-  const events = [], errors = [], subscriptions = [];
+  const events = [], errors = [], subscriptions = [], recorders = [];
   if (cryptoFailure) await context.addInitScript(() => {Object.defineProperty(crypto,'randomUUID',{value:()=>{throw new Error('disabled');}});Object.defineProperty(crypto,'getRandomValues',{value:()=>{throw new Error('disabled');}});});
   if (optedOut) await context.addInitScript(() => localStorage.setItem('umami.disabled', '1'));
   if (notifications) await context.addInitScript(() => {
@@ -44,6 +44,12 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
         if (delayed) await gate;
         return route.fulfill({contentType:'text/javascript', body:tracker});
       }
+      if (url.pathname === '/recorder.js') {
+        recorders.push(route.request().url());
+        if (recorderBlocked) return route.abort();
+        if (recorderDelayed) await gate;
+        return route.fulfill({contentType:'text/javascript', body:'window.recorderLoaded=true;'});
+      }
       if (collectionDelay) await new Promise(resolve=>setTimeout(resolve,collectionDelay));
       events.push(route.request().postDataJSON());
       return route.fulfill({contentType:'application/json', body:'{"cache":"check"}'});
@@ -60,7 +66,7 @@ async function setup({blocked=false, delayed=false, storageBlocked=false, optedO
     return route.abort();
   });
   const page=await context.newPage();page.on('pageerror', e=>{errors.push(e.message);console.error('Browser error',e.message);});
-  return {context,page,events,errors,release,subscriptions};
+  return {context,page,events,errors,release,subscriptions,recorders};
 }
 const pageviews = events => events.filter(e => e.type === 'event' && !e.payload.name);
 const clicks = (events, control) => events.filter(e => e.payload.name === 'ui_click' && e.payload.data.control === control);
@@ -86,6 +92,7 @@ try {
   assert.match(pageviews(a.events)[0].payload.url,/utm_campaign=simple-bryan-story/);
   assert(!JSON.stringify(a.events).includes('private'));
   assert(!JSON.stringify(a.events).includes('hidden'));
+  assert.equal(a.recorders.length,0,'Recorder skips unsanitized page URLs');
   for (const path of ['/support.html','/privacy.html','/BusTrackr/']) {
     const previous=pageviews(a.events).length;
     await a.page.goto(origin+path);await audit(a.page);
@@ -97,6 +104,7 @@ try {
   assert.equal(pageviews(a.events).at(-1).payload.id,id,'ID survives reload');
   await a.page.locator('[data-analytics="feed_refresh"]').focus();await a.page.keyboard.press('Enter');
   await waitForCollection(()=>clicks(a.events,'feed_refresh').length>=1);assert.equal(clicks(a.events,'feed_refresh').length,1);
+  assert.equal(a.recorders.length,4,'Each clean static or app document loads one recorder');
   console.log('Native identity and static pages passed.');
   const returning=await setup({staleBootstrap:true});await returning.page.goto(origin+'/BusTrackr/');
   await returning.page.locator('.simple-screen').waitFor();
@@ -134,6 +142,13 @@ try {
   await coverage.page.evaluate(ids=>{for(const id of ids){const e=document.createElement(id==='trip_seek'?'input':'button');if(id==='trip_seek')e.type='range';e.dataset.analytics=id;document.body.append(e);e.dispatchEvent(new Event(id==='trip_seek'?'change':'click',{bubbles:true}));e.remove();}},[...ids]);
   await waitForCollection(()=>coverage.events.filter(e=>e.payload.name?.startsWith('ui_')).length>=ids.size);
   assert.deepEqual(coverage.events.filter(e=>e.payload.name?.startsWith('ui_')).map(e=>e.payload.data.control).sort(),[...ids].sort(),'Every source control is accepted exactly once, including duplicated bootstrap');
+  assert.equal(coverage.recorders.length,1,'Duplicate bootstrap does not load a second recorder');
+  const campaign=await setup();await campaign.page.goto(origin+'/?utm_source=instagram&utm_campaign=simple-bryan-story');await waitForCollection(()=>campaign.recorders.length>=1);
+  assert.equal(campaign.recorders.length,1,'Clean campaign URLs enable recording');
+  for (const suffix of ['?private=secret','#private','?utm_source='+ 'x'.repeat(121)]) {
+    const unsafe=await setup();await unsafe.page.goto(origin+'/'+suffix);await waitForCollection(()=>pageviews(unsafe.events).length>=1);
+    assert.equal(unsafe.recorders.length,0,'Recorder skips URLs that cannot be sent unchanged');
+  }
   const noCrypto=await setup({cryptoFailure:true});await noCrypto.page.goto(origin+'/');await waitForCollection(()=>pageviews(noCrypto.events).length>=1);assert.deepEqual(noCrypto.errors,[]);assert.equal(pageviews(noCrypto.events).length,1);
   const b=await setup({collectionDelay:250});await b.page.goto(origin+'/');await waitForCollection(()=>pageviews(b.events).length>=1);
   assert.notEqual(pageviews(b.events)[0].payload.id,id,'Same UA different browser profile stays distinct');
@@ -147,7 +162,7 @@ try {
   assert.equal(clicks(delayed.events,'nav_sightings').length,50,'FIFO is bounded to latest 50');
   assert(!JSON.stringify(delayed.events).includes('sensitive'));
   const blocked=await setup({blocked:true});await blocked.page.goto(origin+'/');
-  await blocked.page.locator('[data-analytics="nav_support"]').click();assert.match(blocked.page.url(),/support.html$/);assert.deepEqual(blocked.errors,[]);
+  await blocked.page.locator('[data-analytics="nav_support"]').click();assert.match(blocked.page.url(),/support.html$/);assert.deepEqual(blocked.errors,[]);assert.equal(blocked.recorders.length,0,'Failed tracker never starts recorder');
   for(const event of a.events.filter(e=>e.payload.name)) {
     assert(['ui_click','ui_change','app_view'].includes(event.payload.name));
     assert.deepEqual(Object.keys(event.payload.data).sort(),event.payload.name==='app_view'?['surface','value']:['control','surface']);
@@ -156,6 +171,14 @@ try {
   const delayedApp=await setup({delayed:true});await delayedApp.page.goto(origin+'/BusTrackr/',{waitUntil:'domcontentloaded'});
   await delayedApp.page.locator('.simple-screen').waitFor();await delayedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.equal(delayedApp.events.length,0);delayedApp.release();await delayedApp.page.waitForLoadState('load');await waitForCollection(()=>clicks(delayedApp.events,'feed_refresh').length>=1&&delayedApp.events.some(e=>e.payload.name==='app_view'));assert.equal(clicks(delayedApp.events,'feed_refresh').length,1);assert.equal(delayedApp.events.filter(e=>e.payload.name==='app_view').length,1);
   const blockedApp=await setup({blocked:true});await blockedApp.page.goto(origin+'/BusTrackr/');await blockedApp.page.locator('.simple-screen').waitFor();await blockedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.deepEqual(blockedApp.errors,[]);
+  const delayedRecorder=await setup({recorderDelayed:true});await delayedRecorder.page.goto(origin+'/BusTrackr/',{waitUntil:'domcontentloaded'});
+  await delayedRecorder.page.locator('.simple-screen').waitFor();await delayedRecorder.page.locator('[data-analytics="feed_refresh"]').click();
+  await waitForCollection(()=>clicks(delayedRecorder.events,'feed_refresh').length>=1&&delayedRecorder.recorders.length>=1);
+  assert.equal(await delayedRecorder.page.evaluate(()=>window.recorderLoaded),undefined,'App and tracking work before recorder loads');
+  delayedRecorder.release();await delayedRecorder.page.waitForFunction(()=>window.recorderLoaded===true);assert.deepEqual(delayedRecorder.errors,[]);
+  const blockedRecorder=await setup({recorderBlocked:true});await blockedRecorder.page.goto(origin+'/BusTrackr/');
+  await blockedRecorder.page.locator('[data-analytics="feed_refresh"]').click();await waitForCollection(()=>clicks(blockedRecorder.events,'feed_refresh').length>=1);
+  assert.deepEqual(blockedRecorder.errors,[],'Blocked recorder does not interrupt app or event tracking');
   const expired=await setup({delayed:true});await expired.page.clock.install();await expired.page.goto(origin+'/',{waitUntil:'commit'});await expired.page.waitForFunction(()=>!!window.BusTrackrAnalytics);
   await expired.page.locator('[data-analytics="nav_sightings"]').click();await expired.page.clock.fastForward(31_000);expired.release();await expired.page.waitForLoadState('load');await waitForCollection(()=>pageviews(expired.events).length>=1);await expired.page.waitForTimeout(50);
   assert.equal(clicks(expired.events,'nav_sightings').length,0,'Expired queue is discarded');
@@ -163,7 +186,7 @@ try {
   const marker=await setup();await marker.page.goto(origin+'/BusTrackr/?notification_open=1');await waitForCollection(()=>marker.events.some(e=>e.payload.name==='notification_open'));assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);assert(!marker.page.url().includes('notification_open'));await marker.page.reload();await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);
   await marker.page.evaluate(()=>window.dispatchEvent(new MessageEvent('message',{origin:location.origin,data:{type:'bustrackr_notification_open'},source:window})));await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1,'Window messages cannot impersonate worker opens');
   const opt=await setup({optedOut:true});await opt.page.goto(origin+'/');await opt.page.waitForTimeout(100);
-  assert.equal(await opt.page.evaluate(()=>localStorage.getItem('bustrackr.analytics.browser.v1')),null);assert.equal(opt.events.length,0);
+  assert.equal(await opt.page.evaluate(()=>localStorage.getItem('bustrackr.analytics.browser.v1')),null);assert.equal(opt.events.length,0);assert.equal(opt.recorders.length,0,'Opt-out suppresses recorder');
   assert.equal(await opt.page.evaluate(()=>typeof window.BusTrackrAnalytics),'undefined');
   const notice=await setup({notifications:true});await notice.page.goto(origin+'/BusTrackr/');
   await notice.page.getByRole('button',{name:'Notify me',exact:true}).click();
@@ -181,6 +204,7 @@ try {
   const localhost=await browser.newPage();await localhost.goto(local+'/');
   assert.equal(await localhost.evaluate(()=>localStorage.getItem('bustrackr.analytics.browser.v1')),null);
   assert.equal(await localhost.evaluate(()=>typeof window.BusTrackrAnalytics),'undefined');
+  assert.equal(await localhost.locator('script[src*="analytics.valleychristianai.com"]').count(),0,'Local development loads neither tracker nor recorder');
   const workerHandlers={};let signal,opened,focused=false;
   vm.runInNewContext(await readFile(new URL('public/notifications-sw.js',root),'utf8'),{URL,self:{addEventListener:(name,handler)=>workerHandlers[name]=handler,registration:{scope:origin+'/BusTrackr/'},clients:{matchAll:async()=>[{url:origin+'/BusTrackr/',postMessage:data=>signal=data,focus:async()=>{focused=true;}}],openWindow:async url=>{opened=url;}}}});
   let completed;workerHandlers.notificationclick({notification:{close(){}},waitUntil:promise=>{completed=promise;}});await completed;
