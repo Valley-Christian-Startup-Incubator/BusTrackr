@@ -80,8 +80,6 @@ Drag to pan by default. The Pan/Orbit toggle switches one-finger or left-mouse d
 
 The scenery is an authored approximation, with original detailed bus models and reference-informed campus landmarks. It is not photogrammetry. Demo bus positions and ETAs are simulated. Camera mode uses checkpoint observations and explicitly labelled schedule estimates; continuous GPS is not connected. A confirmed timetable, checkpoint placement/direction, school-verified routing, store signing and distribution, accessibility review and physical-phone profiling remain production work. Six roadside building envelopes use documented inferred height corrections to clear sampled uphill ground; small surface details and transparent glazing use simplified materials. See `docs/performance.md` for measured preview results and limitations.
 
-## TLS runtime requirement
+## Node.js requirement
 
-Use Node.js 22.23.4+, 24.22.1+, or 26.12.1+ for installs, builds, and server execution. Node 23 and 25 are unsupported. These floors include the October 2026 eMudhra CA distrust update.
-Restart or rebuild existing deployments after upgrading; an engine declaration alone does not update a running process.
-The published site is static: browser HTTPS validation belongs to the browser; this requirement protects the build toolchain.
+Use Node.js 22.23.4+, 24.22.1+, or 26.12.1+ for installs, builds, and server execution. Node 23 and 25 are unsupported.
