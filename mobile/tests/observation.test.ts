@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {observationAge, relativeObservationTime} from '../src/shuttle/observation';
+import {earlierDaySighting, observationAge, relativeObservationTime} from '../src/shuttle/observation';
 
 const now = Date.parse('2026-11-02T23:30:00Z');
 const at = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
@@ -33,4 +33,14 @@ test('relative sighting time uses readable units without changing recency', () =
     [1051200, '2', 'years', '2 years ago'],
   ] as const) assert.deepEqual(relativeObservationTime(minutes), {value, unit, label});
   assert.deepEqual(observationAge(at(12000), now), {kind: 'observed', minutes: 12000, color: '#b3322b'});
+});
+
+test('sightings from an earlier Pacific day name the day instead of an age', () => {
+  const monday = Date.parse('2026-11-09T23:35:00Z');
+  assert.equal(earlierDaySighting('2026-11-09T16:00:00Z', monday), null);
+  assert.equal(earlierDaySighting('2026-11-09T08:05:00Z', monday), null);
+  assert.equal(earlierDaySighting('2026-11-09T07:55:00Z', monday), 'Last seen yesterday at 11:55 PM');
+  assert.equal(earlierDaySighting('2026-11-06T22:31:21Z', monday), 'Last seen Friday at 2:31 PM');
+  assert.equal(earlierDaySighting('2026-10-30T22:31:21Z', monday), 'Last seen Oct 30 at 3:31 PM');
+  assert.equal(earlierDaySighting('2026-11-10T00:00:00Z', monday), null);
 });

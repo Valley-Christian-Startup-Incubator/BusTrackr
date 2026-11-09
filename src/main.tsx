@@ -1,6 +1,6 @@
 import {lazy, Suspense, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
+import {earlierDaySighting, observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
 import {useCameraFeed, type CameraFeed} from './useCameraFeed';
 import {WebNotifications} from './WebNotifications';
 import './simple.css';
@@ -21,6 +21,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
   const {feed, fresh, error, now, refresh} = camera;
   const age = observationAge(feed?.latest?.eventAt, now);
   const relativeTime = age.kind === 'observed' ? relativeObservationTime(age.minutes) : null;
+  const earlierDay = age.kind === 'observed' ? earlierDaySighting(feed!.latest!.eventAt!, now) : null;
   const sample = feed?.status === 'sample';
   const status = feed && !fresh ? 'Offline. A newer bus may have passed.' : error && !feed ? 'Feed unavailable. No saved sighting is available.' : error || (!feed ? 'Checking the feed…' : sample ? 'Sample data. Not a real bus sighting.' : `Live · checked ${new Date(feed.lastCheckedAt!).toLocaleTimeString('en-US', {timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit'})}`);
   return <main className="simple-screen" data-mode="simple">
@@ -30,6 +31,11 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
     </header>
     <section className="simple-observation" aria-label="Last bus detection">
       {sample && <p className="simple-sample">Sample data</p>}
+      {earlierDay ? <>
+        <h1>No Fehren bus detected<br/>yet today</h1>
+        <p className="simple-empty" data-testid="earlier-day-sighting">{earlierDay}</p>
+        <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>
+      </> : <>
       <h1>The last Fehren bus<br/>was detected</h1>
       {age.kind === 'observed' ? <div className="simple-age" aria-label={relativeTime!.label}>
         <span className="simple-number" data-digits={relativeTime!.value.length} data-testid="observation-age" style={{color: fresh ? age.color : '#003360'}}>{relativeTime!.value}</span>
@@ -37,6 +43,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
       </div> : <p className="simple-empty">{age.kind === 'clock-error' ? 'Camera clock is ahead' : !feed && !error ? 'Checking the feed…' : feed?.latest ? 'Camera time unavailable' : !feed ? 'No observation available' : 'No bus detected yet'}</p>}
       {age.kind === 'observed' && <p className="simple-time"><time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
       {age.kind === 'observed' && <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>}
+      </>}
     </section>
     <footer className="simple-footer">
       <div className="simple-feed-status"><p role="status">{status}</p><button data-analytics="feed_refresh" type="button" onClick={refresh} aria-label="Refresh feed">Refresh</button></div>

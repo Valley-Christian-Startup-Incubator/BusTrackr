@@ -8,7 +8,7 @@ import {defaultSource, loadSource, saveSource} from '../shuttle/settings';
 import {scenarios, type Source} from '../shuttle/samples';
 import {useShuttle} from '../shuttle/useShuttle';
 import {colors, styles as s} from '../styles';
-import {observationAge, relativeObservationTime} from '../shuttle/observation';
+import {earlierDaySighting, observationAge, relativeObservationTime} from '../shuttle/observation';
 import {NotificationControl} from '../notifications/NotificationControl';
 
 const SceneMap = lazy(() => import('../map/SceneMap').then(module => ({default: module.SceneMap})));
@@ -72,6 +72,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
   const age = observationAge(observation?.eventAt, now);
   const relativeTime = age.kind === 'observed' ? relativeObservationTime(age.minutes) : null;
   const relativeValue = relativeTime?.value ?? '';
+  const earlierDay = age.kind === 'observed' ? earlierDaySighting(observation!.eventAt!, now) : null;
   const fittedNumeralSize = Math.min(numeralSize, (Math.min(width, 620) - 48) / Math.max(1, relativeValue.length * .62));
   const observationOffline = view.kind === 'unavailable' || view.kind === 'stale' || view.kind === 'loading';
   const status = view.kind === 'loading' ? 'Checking feed' : view.kind === 'unavailable' ? 'Feed unavailable' : view.kind === 'stale' ? 'Feed is stale' : sample ? 'Illustrative data' : 'Feed connected';
@@ -95,8 +96,11 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
     {!!modeError && <Text accessibilityRole="alert" style={s.preferenceError}>{modeError}</Text>}
     {mode === 'simple' ? <ScrollView style={s.flex} contentContainerStyle={s.simpleContent} refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.teal}/>}>
       <View style={s.simpleReading}>
-        <Text accessibilityRole="header" style={s.simpleLead}>The last Fehren bus was detected</Text>
-        {age.kind === 'observed' ? <>
+        <Text accessibilityRole="header" style={s.simpleLead}>{earlierDay ? 'No Fehren bus detected yet today' : 'The last Fehren bus was detected'}</Text>
+        {earlierDay ? <>
+          <Text testID="earlier-day-sighting" style={s.simpleEmpty}>{earlierDay}</Text>
+          <Text style={s.simpleNote}>{observation!.checkpoint}</Text>
+        </> : age.kind === 'observed' ? <>
           <Text testID="observation-age" accessibilityLabel={relativeTime!.label} style={[s.simpleNumber, {fontSize: fittedNumeralSize, lineHeight: fittedNumeralSize * 1.1, color: observationOffline ? colors.muted : age.color}]} allowFontScaling={false} numberOfLines={1}>{relativeValue}</Text>
           <Text style={s.simpleUnit}>{relativeTime!.unit} ago</Text>
           <Text style={s.simpleNote}>{pacificTime(observation!.eventAt!)} · {observation!.checkpoint}</Text>

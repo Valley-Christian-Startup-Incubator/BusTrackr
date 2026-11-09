@@ -33,15 +33,20 @@ try {
   missing=false;future=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
   await page.getByText('Camera time is ahead. Waiting for a valid sighting.').waitFor();
   assert.equal(await numeral.count(),0);
+  future=false;minutes=12000;await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.getByTestId('earlier-day-sighting').waitFor();
+  await page.getByText('No Fehren bus detected yet today',{exact:true}).waitFor();
+  assert.equal(await numeral.count(),0);
+  await page.screenshot({path:`${out}/mobile-earlier-day.png`});
   for (const width of [320,768,1440]) {
-    future=false;minutes=12000;await page.setViewportSize({width,height:900});
+    minutes=59;await page.setViewportSize({width,height:900});
     await page.getByRole('button',{name:'Refresh',exact:true}).click();
     await numeral.waitFor();
-    await page.waitForFunction(()=>document.querySelector('[data-testid="observation-age"]')?.textContent==='8');
-    await page.getByText('days ago', {exact: true}).waitFor();
+    await page.waitForFunction(()=>document.querySelector('[data-testid="observation-age"]')?.textContent==='59');
+    await page.getByText('minutes ago', {exact: true}).waitFor();
     assert(await numeral.evaluate(el=>{const style=getComputedStyle(el);const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');ctx.font=`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;return ctx.measureText(el.textContent).width<=el.clientWidth;}), `minute numeral is clipped at ${width}`);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),`overflow at ${width}`);
     await page.screenshot({path:`${out}/mobile-${width}.png`});
   }
-  console.log('PASS mobile Simple mode fresh/red/offline retention/missing/future/long ages and responsive widths.');
+  console.log('PASS mobile Simple mode fresh/red/offline retention/missing/future/earlier-day sightings and responsive widths.');
 } finally {await browser.close();}

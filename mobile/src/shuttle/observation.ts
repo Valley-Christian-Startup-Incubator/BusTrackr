@@ -31,3 +31,16 @@ export function relativeObservationTime(minutes: number): {value: string; unit: 
   const unit = scale.name + (count === 1 ? '' : 's');
   return {value, unit, label: `${value} ${unit} ago`};
 }
+
+const pacificDay = (time: number) => new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Los_Angeles'}).format(time);
+
+// A sighting from an earlier Pacific day reads as "no bus yet today" rather than a large stale age.
+export function earlierDaySighting(eventAt: string, now: number): string | null {
+  const timestamp = Date.parse(eventAt);
+  const days = Math.round((Date.parse(pacificDay(now)) - Date.parse(pacificDay(timestamp))) / 86_400_000);
+  if (!(days > 0)) return null;
+  const format = (options: Intl.DateTimeFormatOptions) => new Date(timestamp).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', ...options});
+  const time = format({hour: 'numeric', minute: '2-digit'});
+  const day = days === 1 ? 'yesterday' : days < 7 ? format({weekday: 'long'}) : format({month: 'short', day: 'numeric'});
+  return `Last seen ${day} at ${time}`;
+}
