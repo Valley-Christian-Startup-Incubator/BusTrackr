@@ -1,0 +1,16 @@
+Generated with the built-in imagegen tool.
+
+Use case: ads-marketing.
+Create one finished, polished email announcement graphic for BusTrackr, a student-built Fehren–Skyway campus shuttle tracker for Valley Christian students. Wide landscape format, approximately 1536 x 1024. This is the actual insertable graphic, not a mockup on a screen or a presentation of a design.
+Art direction: confident editorial typography with a charming custom flat illustrated campus shuttle and a winding route. Refined restrained sage green and deep forest green, pale warm cream background, lots of breathing room, crisp graphic shapes. Palette #edf0e9, #263b37, #456354, #d2decd. Flat vector-like illustration, no photographic elements, no 3D render, no interface or fake app screenshot.
+Composition: large typographic headline on the upper left; striking large side-view campus shuttle illustration across the middle-right, integrated into a simple curved route line connecting two circular stops labeled Fehren Lot and Skyway Campus. Shuttle should be a believable pale green and white campus bus, dark window band, black wheels, subtle sage accents. The illustration is symbolic, not a geographic map. Elegant highly legible sans serif typography. The link must be easy to read at email width. Clean full-bleed rectangular graphic without an outer mockup border.
+Exact copy, verbatim, with deliberate hierarchy:
+Small wordmark at top: "BusTrackr"
+Very large primary headline broken across two lines: "Your campus shuttle." / "One link away."
+Medium subheading: "Fehren Bus Tracker"
+Short supporting copy: "Check the latest camera sighting." / "Explore the shuttle route in 3D."
+Route stop labels: "Fehren Lot" and "Skyway Campus"
+Bottom clearly separated call-to-action: "Open the tracker"
+Prominent readable URL at bottom: "bustrackr.valleychristianai.com"
+Small footer: "Built by Valley students, for Valley students."
+Spell Fehren exactly F-e-h-r-e-n. Ensure all text is accurate, crisp, and unclipped. Avoid additional words, QR codes, badges, App Store icons, invented school logos, live GPS claims, arrival-time promises, fabricated bus status or times. Attractive professional school announcement, friendly and practical.
