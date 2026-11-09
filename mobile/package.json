@@ -10,7 +10,7 @@
     "expo-device": "~57.0.2",
     "expo-linking": "~57.0.13",
     "expo-notifications": "~57.0.24",
-    "expo-router": "~57.0.29",
+    "expo-router": "~58.0.30",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
