@@ -1,9 +1,10 @@
 import * as T from 'three';
+import {assetUrl} from './asset-urls';
 
 // Bound network waits so a stalled asset produces a retryable error, not an endless spinner.
 export async function fetchAsset(path:string){
  try {
-  const response=await fetch(import.meta.env.BASE_URL+path,{signal:AbortSignal.timeout(20_000)});
+  const response=await fetch(assetUrl(path),{signal:AbortSignal.timeout(20_000)});
   if(!response.ok)throw new Error(`HTTP ${response.status}`);
   return response;
  } catch(error){
