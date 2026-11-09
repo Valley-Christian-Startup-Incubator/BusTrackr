@@ -1,16 +1,17 @@
 import {StyleSheet} from 'react-native';
 
+// Valley Christian Schools palette: PMS 540 navy, PMS 2905 Columbia, PMS 123 gold, PMS 186 red.
 export const colors = {
-  paper: '#EDF0E9', card: '#F7F7F1', ink: '#263B37', muted: '#53645C',
-  line: '#D0D7CC', teal: '#456354', tealTint: '#DFE6DC', tealLine: '#CCD7C7',
-  amber: '#8F4E00', sample: '#FFDF6E', error: '#A3312A',
+  paper: '#FFFFFF', card: '#EEF7FC', ink: '#003360', muted: '#003360',
+  line: '#CFE9F7', teal: '#003360', tealTint: '#8CD2F4', tealLine: '#8CD2F4',
+  amber: '#8F4E00', sample: '#FFCC33', error: '#CC0033', white: '#FFFFFF',
 };
 export const styles = StyleSheet.create({
   flex: {flex: 1},
   notificationFooter: {paddingHorizontal: 24, paddingBottom: 16, width: '100%', maxWidth: 620, alignSelf: 'center'},
-  modeSwitch: {flexDirection: 'row', alignSelf: 'center', padding: 4, marginVertical: 12, backgroundColor: '#E0E4DE', borderRadius: 8},
+  modeSwitch: {flexDirection: 'row', alignSelf: 'center', padding: 4, marginVertical: 12, backgroundColor: colors.card, borderRadius: 8},
   modeButton: {minHeight: 44, minWidth: 104, justifyContent: 'center', alignItems: 'center', borderRadius: 6},
-  modeSelected: {backgroundColor: colors.card},
+  modeSelected: {backgroundColor: colors.tealTint},
   modeText: {fontSize: 16, color: colors.muted, fontWeight: '500'},
   modeSelectedText: {color: colors.ink, fontWeight: '600'},
   preferenceError: {paddingHorizontal: 20, fontSize: 14, color: colors.error},
@@ -76,7 +77,7 @@ export const styles = StyleSheet.create({
   choiceText: {fontSize: 13, color: colors.ink, fontWeight: '500'},
   choiceTextSelected: {color: colors.ink, fontWeight: '600'},
   button: {minHeight: 44, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.teal, justifyContent: 'center', alignItems: 'center'},
-  buttonText: {fontSize: 15, fontWeight: '600', color: colors.card},
+  buttonText: {fontSize: 15, fontWeight: '600', color: colors.white},
   secondaryButton: {backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line},
   secondaryButtonText: {color: colors.ink},
   pressed: {opacity: .6},

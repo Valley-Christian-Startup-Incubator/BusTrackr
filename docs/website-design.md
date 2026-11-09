@@ -27,3 +27,13 @@ Final screenshot critique: design 7/10, usability 8/10, creativity 7/10, content
 At the user's request, the loud yellow masthead was replaced by a map-led composition. Pale green-gray ground (#edf0e9), sage surfaces (#dfe6dc), charcoal-green ink (#263b37), and a subdued green action (#456354) complement the terrain, roofs and foliage in the actual scene. The first screen pairs a compact Fehren-to-Skyway heading with a tightly cropped campus view. Removed the giant wordmark, decorative marquee, duplicate route screenshot and leftover styling/font-fit code. The sighting now sits on a calm sage field with its operational details alongside it.
 
 Claude consultation was attempted but returned a session-limit error; this variation was implemented and independently reviewed by Codex. Source lint and rendered checks pass with 0 failures at 1440/768/390. The inspector's stylistic warnings remain documented rather than hidden: this user-selected map palette and quiet treatment intentionally supersede the prior poster direction and its font/motion assumptions. Actual production-feed data was used in the layout review. Reports and screenshots: `.audit/map-look-shipping/`.
+
+## Valley Christian Schools / BEI branding
+
+BusTrackr is presented as a student project of BEI | Business, Entrepreneurship, & Innovation at Valley Christian Schools, following the VCS Brand Guidelines (rev. 9/2026, linked from vcs.net/brandguidelines). The product keeps the BusTrackr name; BEI appears as an endorsement in the website footer, the app's About dialog, and under the Simple view.
+
+Colors come only from the VCS palette: PMS 540 navy `#003360` (ink, actions, footer, map backdrop), PMS 2905 Columbia `#8CD2F4` (the sighting field, selected controls, the primary route line), white grounds, and PMS 123 gold `#FFCC33` for sample/estimate tags and the second route line. Text uses approved colors only. The freshness scale on the age number (green, amber, red) is functional data and stays as it was.
+
+Type: Montserrat stands in for Gotham/Proxima Nova and Libre Bodoni for Filosofia (both Google Fonts; the brand fonts need an Adobe Fonts license). Arial and Times New Roman are the guide's own fallbacks. Headlines are Montserrat Light, like the guide's own headings; Libre Bodoni is kept for the large sighting time, echoing the serif division wordmarks. The native app still uses system fonts.
+
+Logos: never redraw, recolor, or approximate a VCS or BEI mark. The official BEI lockup must come from the VCS Marketing Portal (questions: marketing@vcs.net). The footers carry a commented slot for `assets/bei-lockup.svg` (reverse/white version on navy).

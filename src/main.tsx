@@ -32,7 +32,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
       {sample && <p className="simple-sample">Sample data</p>}
       <h1>The last Fehren bus<br/>was detected</h1>
       {age.kind === 'observed' ? <div className="simple-age" aria-label={relativeTime!.label}>
-        <span className="simple-number" data-digits={relativeTime!.value.length} data-testid="observation-age" style={{color: fresh ? age.color : '#53645c'}}>{relativeTime!.value}</span>
+        <span className="simple-number" data-digits={relativeTime!.value.length} data-testid="observation-age" style={{color: fresh ? age.color : '#003360'}}>{relativeTime!.value}</span>
         <span className="simple-unit">{relativeTime!.unit} ago</span>
       </div> : <p className="simple-empty">{age.kind === 'clock-error' ? 'Camera clock is ahead' : !feed && !error ? 'Checking the feed…' : feed?.latest ? 'Camera time unavailable' : !feed ? 'No observation available' : 'No bus detected yet'}</p>}
       {age.kind === 'observed' && <p className="simple-time"><time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
@@ -59,7 +59,7 @@ function App() {
     {mode === 'simple' ? <SimpleScreen camera={camera} modeControl={modeControl} settingError={settingError}/> : <Suspense fallback={<div className="map-opening">{modeControl}<p>Opening the map…</p></div>}><MapApp camera={camera} modeControl={modeControl}/></Suspense>}
     <div className="notification-dock" hidden={mode === 'map' && !alertsOpen}>
       <WebNotifications sample={camera.feed?.status === 'sample'}/>
-      {mode === 'simple' && <p className="simple-note">Time since camera detection, not an arrival estimate.</p>}
+      {mode === 'simple' && <><p className="simple-note">Time since camera detection, not an arrival estimate.</p><p className="simple-credit">A student project of BEI | Business, Entrepreneurship, &amp; Innovation at Valley Christian Schools.</p></>}
     </div>
   </div>;
 }
