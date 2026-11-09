@@ -43,11 +43,18 @@ try {
     await page.waitForFunction(value => document.querySelector('[data-testid="observation-age"]')?.textContent === String(value), age);
     assert.equal(await page.getByTestId('observation-age').evaluate(node => getComputedStyle(node).color), color);
   }
-  for (const [elapsed, value, unit] of [[60, '1', 'hour'], [120, '2', 'hours'], [1440, '1', 'day'], [12000, '8', 'days']]) {
+  for (const [elapsed, value, unit] of [[60, '1', 'hour'], [120, '2', 'hours']]) {
     minutes = elapsed;
     await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
     await page.waitForFunction(value => document.querySelector('[data-testid="observation-age"]')?.textContent === value, value);
     await page.getByText(`${unit} ago`, {exact: true}).waitFor();
+  }
+  for (const [elapsed, text] of [[1440, 'Last seen yesterday at 3:30 PM'], [4320, 'Last seen Friday at 4:30 PM'], [12000, 'Last seen Oct 25 at 8:30 AM']]) {
+    minutes = elapsed;
+    await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+    await page.getByText(text, {exact: true}).waitFor();
+    await page.getByRole('heading', {name: /No Fehren bus detected\s*yet today/}).waitFor();
+    assert.equal(await page.getByTestId('observation-age').count(), 0);
   }
   await page.screenshot({path: '.audit/simple-mode/web-days.png', fullPage: true});
   minutes = 10;
