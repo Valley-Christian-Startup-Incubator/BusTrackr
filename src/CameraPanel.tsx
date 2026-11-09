@@ -1,5 +1,6 @@
-import {useEffect, useRef, useState} from 'react';
-import {feedEndpoint, type CameraFeed} from './useCameraFeed';
+import {useEffect} from 'react';
+import type {CameraFeed} from './useCameraFeed';
+import {useFeedbackReport} from './useFeedbackReport';
 import {observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
 export type EstimatedMarker = {direction: 'inbound' | 'outbound'; progress: number; lower: number; upper: number};
 const reasons = {
@@ -9,21 +10,8 @@ const reasons = {
   unknown: 'No active journey is confirmed.',
   offline: 'The feed is offline. Estimates are hidden.',
 };
-const feedbackEndpoint = feedEndpoint.replace(/\/api\/shuttle$/, '/api/feedback');
-type Verdict = 'arrived' | 'wrong';
 function PredictionFeedback({estimated}: {estimated: boolean}) {
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
-  // One id per verdict, so a retry after a lost response is stored once.
-  const ids = useRef<Partial<Record<Verdict, string>>>({});
-  async function send(verdict: Verdict) {
-    setState('sending');
-    const release = document.querySelector<HTMLMetaElement>('meta[name="bustrackr-release"]')?.content || null;
-    try {
-      const response = await fetch(feedbackEndpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, signal: AbortSignal.timeout(10_000),
-        body: JSON.stringify({id: ids.current[verdict] ??= crypto.randomUUID(), verdict, release})});
-      setState(response.ok ? 'sent' : 'failed');
-    } catch {setState('failed');}
-  }
+  const {state, send} = useFeedbackReport('map');
   if (state === 'sent') return <p className="prediction-feedback" role="status">Thanks. Your report is saved with this estimate.</p>;
   return <div className="prediction-feedback" role="group" aria-label="Report on this estimate">
     <span>{estimated ? 'Is this estimate right?' : 'Seeing the bus?'}</span>

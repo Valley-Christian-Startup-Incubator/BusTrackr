@@ -7,6 +7,7 @@ import {requestLimiter} from './notifications.mjs';
 const submission = z.object({
   id:z.string().uuid(),
   verdict:z.enum(['arrived','wrong']),
+  view:z.enum(['simple','map']),
   release:z.string().regex(/^[0-9a-f]{7,40}$/).nullable().default(null),
 });
 
@@ -22,10 +23,10 @@ export async function createFeedbackLog({path, prediction, commit=null, now=()=>
     record(input) {
       const parsed = submission.safeParse(input);
       if (!parsed.success) return Promise.reject(Object.assign(new Error('Invalid feedback'),{status:400}));
-      const {id,verdict,release} = parsed.data;
+      const {id,verdict,view,release} = parsed.data;
       const result = queue.then(async()=>{
         if (ids.has(id)) return {id};
-        const entry = {id,receivedAt:now().toISOString(),verdict,collector:{commit,release},prediction:prediction()};
+        const entry = {id,receivedAt:now().toISOString(),verdict,view,collector:{commit,release},prediction:prediction()};
         await mkdir(dirname(path),{recursive:true});
         await appendFile(path,separator+JSON.stringify(entry)+'\n',{mode:0o600});
         separator = '';ids.add(id);

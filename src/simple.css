@@ -140,6 +140,24 @@ button:focus-visible,a:focus-visible {
   line-height:1.5;
   margin:22px 0 0
 }
+.simple-report {
+  margin:26px 0 0;
+  font-size:14px;
+  color:#003360
+}
+.simple-report button {
+  min-height:44px;
+  padding:10px 20px;
+  border:1px solid #003360;
+  border-radius:8px;
+  background:#ffffff;
+  color:#003360;
+  font-size:15px;
+  font-weight:600
+}
+.simple-report p {
+  margin:10px 0 0
+}
 .simple-empty {
   font-size:24px;
   line-height:1.35;

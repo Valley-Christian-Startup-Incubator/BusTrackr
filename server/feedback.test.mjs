@@ -24,10 +24,10 @@ test('a rider report is saved with the prediction it judges and the code that ma
   const path = join(dir,'feedback.jsonl');
   const options = {path,prediction:()=>prediction,commit:'f15017a',now:()=>new Date('2026-11-09T15:08:00Z')};
   const post = await serve(t,await createFeedbackLog(options));
-  const report = {id:randomUUID(),verdict:'arrived',release:'f15017a8c2d1'};
+  const report = {id:randomUUID(),verdict:'arrived',view:'simple',release:'f15017a8c2d1'};
   assert.equal((await post(report,{Origin:'https://bustrackr.valleychristianai.com'})).status,200);
   assert.equal((await post(report)).status,200,'a retried report is accepted');
-  assert.deepEqual(await records(path),[{id:report.id,receivedAt:'2026-11-09T15:08:00.000Z',verdict:'arrived',
+  assert.deepEqual(await records(path),[{id:report.id,receivedAt:'2026-11-09T15:08:00.000Z',verdict:'arrived',view:'simple',
     collector:{commit:'f15017a',release:'f15017a8c2d1'},prediction}],'a retry does not add a second record');
 
   const restarted = await serve(t,await createFeedbackLog(options));
@@ -42,7 +42,7 @@ test('a report after a torn write starts on its own line', async t=>{
   await appendFile(path,'{"id":"torn"');
   const post = await serve(t,await createFeedbackLog({path,prediction:()=>prediction}));
   const id = randomUUID();
-  assert.equal((await post({id,verdict:'wrong'})).status,200);
+  assert.equal((await post({id,verdict:'wrong',view:'map'})).status,200);
   const lines = (await readFile(path,'utf8')).split('\n');
   assert.equal(lines[0],'{"id":"torn"');
   assert.deepEqual(JSON.parse(lines[1]).collector,{commit:null,release:null});
@@ -54,11 +54,12 @@ test('invalid or foreign reports are refused without writing', async t=>{
   t.after(()=>rm(dir,{recursive:true,force:true}));
   const path = join(dir,'feedback.jsonl');
   const post = await serve(t,await createFeedbackLog({path,prediction:()=>prediction}));
-  assert.equal((await post({id:randomUUID(),verdict:'great'})).status,400);
-  assert.equal((await post({id:'not-a-uuid',verdict:'wrong'})).status,400);
-  assert.equal((await post({id:randomUUID(),verdict:'wrong',release:'<script>'})).status,400);
+  assert.equal((await post({id:randomUUID(),verdict:'great',view:'map'})).status,400);
+  assert.equal((await post({id:randomUUID(),verdict:'wrong'})).status,400,'view is required');
+  assert.equal((await post({id:'not-a-uuid',verdict:'wrong',view:'map'})).status,400);
+  assert.equal((await post({id:randomUUID(),verdict:'wrong',view:'map',release:'<script>'})).status,400);
   assert.equal((await post('{')).status,400);
-  assert.equal((await post({id:randomUUID(),verdict:'wrong'},{'Content-Type':'text/plain'})).status,415);
-  assert.equal((await post({id:randomUUID(),verdict:'wrong'},{Origin:'https://evil.example'})).status,403);
+  assert.equal((await post({id:randomUUID(),verdict:'wrong',view:'map'},{'Content-Type':'text/plain'})).status,415);
+  assert.equal((await post({id:randomUUID(),verdict:'wrong',view:'map'},{Origin:'https://evil.example'})).status,403);
   await assert.rejects(readFile(path),{code:'ENOENT'});
 });
