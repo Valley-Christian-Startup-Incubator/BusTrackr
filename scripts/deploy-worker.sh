@@ -11,6 +11,13 @@ git archive --format=tar "$commit" $files | ssh "$host" 'cat > /tmp/bustrackr-wo
 ssh "$host" "COMMIT=$commit sh -s" <<'REMOTE'
 set -eu
 cd "${BUSTRACKR_ROOT:-$HOME/apps/bustrackr}"
+# Code hot-copied ahead of a merge would silently disappear; make the operator merge it first.
+unknown=$(ls server/*.mjs | grep -v '\.test\.mjs$' | grep -vxF "$(tar -tf /tmp/bustrackr-worker.tar)" || true)
+if [ -n "$unknown" ]; then
+  rm /tmp/bustrackr-worker.tar
+  echo "Live worker has files missing from $COMMIT: $unknown. Merge that code first; nothing changed." >&2
+  exit 1
+fi
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p backups
 tar -czf "backups/server-$stamp.tgz" server .env.server
