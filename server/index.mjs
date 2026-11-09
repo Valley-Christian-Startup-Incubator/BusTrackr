@@ -11,6 +11,7 @@ import {dashboardSync, umamiSink} from './dashboard.mjs';
 import {estimate, validateSchedule} from './estimator.mjs';
 import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
 import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
+import {createFeedbackLog, feedbackRoutes} from './feedback.mjs';
 
 const sample = process.argv.includes('--sample');
 const once = process.argv.includes('--once');
@@ -85,6 +86,12 @@ function maintainHistory() {
 }
 const historyTimer=once?null:setInterval(maintainHistory,60_000);
 if(!once)maintainHistory();
+let feedback;
+try {
+  feedback=await createFeedbackLog({path:process.env.FEEDBACK_FILE || `${statePath}.feedback.jsonl`,
+    prediction:()=>payload().prediction,commit:process.env.BUSTRACKR_COMMIT || null});
+} catch {console.error('Feedback storage unavailable; camera ingestion remains active.');}
+const handleFeedback=feedbackRoutes(feedback || {record:async()=>{throw new Error('Feedback storage unavailable');}},{allowedOrigins});
 let notifying=false;
 const notificationTimer=!once && !sample && notifications && (delivery.config.expo || delivery.config.webPushPublicKey)?setInterval(()=>{
   if(notifying)return;
@@ -96,6 +103,7 @@ const server = createServer(async (req,res)=>{
   res.setHeader('Vary','Origin'); res.setHeader('Cache-Control','no-store'); res.setHeader('Content-Type','application/json');
   if (await handleNotifications(req,res)) return;
   if (await handleWaitlist(req,res)) return;
+  if (await handleFeedback(req,res)) return;
   if (req.method === 'GET' && req.url === '/api/health') {res.end(JSON.stringify({status:missing.length?'needs_configuration':payload().status,storage:'local',missing}));return;}
   if (req.method === 'POST' && req.url === '/api/resend/inbound') {
     if (!receiver) {res.writeHead(503);res.end(JSON.stringify({error:'Receiver needs configuration'}));return;}

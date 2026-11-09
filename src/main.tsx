@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {earlierDaySighting, observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
 import {useCameraFeed, type CameraFeed} from './useCameraFeed';
 import {WebNotifications} from './WebNotifications';
+import {useFeedbackReport} from './useFeedbackReport';
 import './simple.css';
 
 const MapApp = lazy(() => import('./MapApp'));
@@ -15,6 +16,14 @@ function ModeControl({mode, onChange}: {mode: Mode; onChange: (mode: Mode) => vo
   return <div className="mode-control" role="group" aria-label="Display mode">
     <button data-analytics="mode_simple" type="button" aria-pressed={mode === 'simple'} onClick={() => onChange('simple')}>Simple</button>
     <button data-analytics="mode_map" type="button" aria-pressed={mode === 'map'} onClick={() => onChange('map')}>Map</button>
+  </div>;
+}
+function SimpleReport() {
+  const {state, send} = useFeedbackReport('simple');
+  if (state === 'sent') return <p className="simple-report" role="status">Thanks. We saved your report.</p>;
+  return <div className="simple-report">
+    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived')}>Actually, the bus is here now</button>
+    {state === 'failed' && <p role="alert">Couldn't send your report. Try again.</p>}
   </div>;
 }
 function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; modeControl: React.ReactNode; settingError: string}) {
@@ -44,6 +53,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
       {age.kind === 'observed' && <p className="simple-time"><time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
       {age.kind === 'observed' && <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>}
       </>}
+      {feed && !error && <SimpleReport/>}
     </section>
     <footer className="simple-footer">
       <div className="simple-feed-status"><p role="status">{status}</p><button data-analytics="feed_refresh" type="button" onClick={refresh} aria-label="Refresh feed">Refresh</button></div>
