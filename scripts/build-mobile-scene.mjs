@@ -20,10 +20,8 @@ const result = await build({
   minify: true, format: 'iife', target: ['safari16', 'chrome110'], legalComments: 'inline',
   define: {'import.meta.env.BASE_URL': '"./"'}, nodePaths: [resolve(root, 'mobile/node_modules')],
   plugins: [{name: 'packaged-scene-assets', setup(builder) {
-    builder.onLoad({filter: /src\/local\/assets\.ts$/}, async ({path}) => {
-      const source = await readFile(path, 'utf8');
-      return {loader: 'ts', contents: `const packaged:Record<string,string>=${JSON.stringify(assets)};\nfunction assetUrl(path:string){if(!packaged[path])throw new Error('Asset not packaged: '+path);return packaged[path];}\n` + source.replace('import.meta.env.BASE_URL+path', 'assetUrl(path)')};
-    });
+    builder.onLoad({filter: /src\/local\/asset-urls\.ts$/}, () => ({loader: 'ts',
+      contents: `const packaged:Record<string,string>=${JSON.stringify(assets)};\nexport function assetUrl(path:string){if(!packaged[path])throw new Error('Asset not packaged: '+path);return packaged[path];}\n`}));
   }}],
 });
 const script = result.outputFiles[0].text.replaceAll('</script', '<\\/script');
