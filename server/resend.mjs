@@ -1,7 +1,7 @@
 import {Webhook} from 'svix';
 import {z} from 'zod';
 import {verifyForwardedRaw} from './forwarded-auth.mjs';
-import {parseAlert, recordAlert} from './alerts.mjs';
+import {parseAlert} from './alerts.mjs';
 
 const address = z.string().min(1).max(320).refine(value => !/[\r\n]/.test(value));
 const emailSchema = z.object({
@@ -74,7 +74,7 @@ export function verifyReceivingEvent(raw, headers, config) {
   if (!forRecipient(parsed.data.data.to, config.recipient)) return {status:200, body:{ignored:true}};
   return {id:parsed.data.data.email_id};
 }
-export function createReceiver({state, config, api, persist}) {
+export function createReceiver({history, config, api}) {
   let queue = Promise.resolve(), pending = 0;
   const failures = new Set();
   return {
@@ -86,15 +86,11 @@ export function createReceiver({state, config, api, persist}) {
       if (pending >= 32) return {status: 503, body: {error: 'Receiver busy; retry later'}};
       pending++;
       const process = async () => {
-        if (state.resendReceipts?.includes(id)) {failures.delete(id); return {status: 200, body: {duplicate: true}};}
+        if (history.hasReceipt(id)) {failures.delete(id); return {status: 200, body: {duplicate: true}};}
         const mail = await api(`/emails/receiving/${id}?html_format=cid`);
         if (mail.id !== id) throw new Error('Received email ID mismatch');
         const alert = await receivedAlert(mail, config);
-        const next = structuredClone(state);
-        const stored = recordAlert(next, alert, config.cooldownSeconds);
-        next.resendReceipts = [...(next.resendReceipts || []), id];
-        await persist(next);
-        Object.assign(state, next);
+        const stored = history.record(alert, id, config.cooldownSeconds);
         failures.delete(id);
         return {status: 200, body: {stored}};
       };

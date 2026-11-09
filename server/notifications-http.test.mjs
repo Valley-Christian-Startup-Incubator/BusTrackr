@@ -7,16 +7,16 @@ import {tmpdir} from 'node:os';
 import {createServer} from 'node:http';
 import {Webhook} from 'svix';
 import {createReceiver,boundedText} from './resend.mjs';
-import {saveState} from './alerts.mjs';
+import {openHistory} from './history.mjs';
 import {createNotificationService,notificationRoutes} from './notifications.mjs';
 
 test('a signed inbound email reaches durable camera history and one background notification',async t=>{
   const dir=await mkdtemp(join(tmpdir(),'bustrackr-push-http-'));
   t.after(()=>rm(dir,{recursive:true,force:true}));
   let now=Date.parse('2026-11-02T23:00:00Z');
-  const state={events:[],latest:null},sent=[],secret=`whsec_${randomBytes(32).toString('base64')}`;
+  const history=openHistory(join(dir,'camera.sqlite')),state=history.state,sent=[],secret=`whsec_${randomBytes(32).toString('base64')}`;
   const config={sender:'avigilonalerts@vcs.net',marker:'BEI Bus has arrived.',checkpoint:'BEI',recipient:'camera@example.com',webhookSecret:secret,cooldownSeconds:30};
-  const receiver=createReceiver({state,config,persist:next=>saveState(join(dir,'camera.json'),next),api:async()=>({
+  const receiver=createReceiver({history,config,api:async()=>({
     id:'91736436-87f9-42c1-a422-ef7fc7b7d2e6',from:config.sender,to:[config.recipient],subject:'Camera',
     created_at:'2026-11-02T23:00:02Z',text:'[2026-Nov-02 03:00:02 PM (PST)] BEI Bus has arrived.',html:null,authentication:{dkim:'pass',dmarc:'pass'},
   })});

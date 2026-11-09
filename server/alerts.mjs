@@ -1,16 +1,10 @@
 import {createHash} from 'node:crypto';
-import {readFile, mkdir, writeFile, rename} from 'node:fs/promises';
+import {mkdir, writeFile, rename} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {simpleParser} from 'mailparser';
 
-export async function loadState(path) {
-  let state;
-  try { state = JSON.parse(await readFile(path, 'utf8')); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; state = {cursor:null, latest:null}; }
-  // Preserve the first scaffold's latest observation during migration.
-  state.events ??= state.latest ? [state.latest] : [];
-  return state;
-}
+// Bump when a change to matching or timestamp rules would parse the same email differently.
+export const PARSER = 'camera-email-v1';
 export async function saveState(path, state) {
   await mkdir(dirname(path), {recursive:true});
   await writeFile(`${path}.tmp`, JSON.stringify(state), {mode:0o600});
@@ -45,6 +39,7 @@ export async function parseAlert(source, config, receivedAt = new Date()) {
     receivedAt:receivedAt.toISOString(),
     reportedAt:mail.date && Number.isFinite(mail.date.getTime()) ? mail.date.toISOString() : null,
     source:'camera-email',
+    input:{messageId:mail.messageId || null, bodySha256:createHash('sha256').update(text).digest('hex')},
   };
 }
 export function recordAlert(state, alert, cooldownSeconds = 30) {

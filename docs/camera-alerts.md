@@ -11,7 +11,7 @@ npm run alerts:sample
 npm run dev -- --port 4173 --strictPort
 ```
 
-Open http://localhost:4173. Camera estimates is the default mode. The sample parses an Avigilon-format fixture with a recent synthetic event time, stores it in `.data/sample-alerts.json`, and uses an explicitly illustrative schedule. The amber map marker and route band show estimated progress; Scene demo switches back to the simulated fleet. A sample event is created only for an empty sample state. After its journey ends the marker disappears; use a new `ALERT_STATE_FILE` for a fresh demo.
+Open http://localhost:4173. Camera estimates is the default mode. The sample parses an Avigilon-format fixture with a recent synthetic event time, stores it in `.data/sample-alerts.sqlite`, and uses an explicitly illustrative schedule. The amber map marker and route band show estimated progress; Scene demo switches back to the simulated fleet. A sample event is created only for an empty sample state. After its journey ends the marker disappears; use a new `ALERT_STATE_FILE` for a fresh demo.
 
 The dev server proxies `/api` to port 8787. Production requires `VITE_ALERT_API_URL` pointing to the worker's HTTPS `/api/shuttle` endpoint at frontend build time. `.env.example` documents this public setting. Without it, production shows a configuration notice and hides estimates.
 
@@ -92,7 +92,7 @@ A working feed supplies observations. Position estimates also require the confir
 
 Commit example files, never filled-in files. Root `.env.server.example` is the backend template; root `.env.example` and `mobile/.env.example` contain only public client settings. The retired Vercel deployment sources have been removed. Production does not depend on Vercel.
 
-The backend uses a private Node 24.22.1 runtime at `/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64`. It does not change the system Node version. State lives at `/Users/aimac/apps/bustrackr/.data/alerts.json` and survives service restarts and deployments. Keep this directory and `.env.server` when updating code. Back up the state file as part of the machine's backup policy; no off-machine backup has been configured by this deployment.
+The backend uses a private Node 24.22.1 runtime at `/Users/aimac/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64`. It does not change the system Node version. Camera history lives at `/Users/aimac/apps/bustrackr/.data/alerts.sqlite` and survives service restarts and deployments. Keep this directory and `.env.server` when updating code. The worker writes a daily snapshot to `.data/backups/sightings-YYYY-MM-DD.sqlite` and keeps 14. No off-machine backup has been configured by this deployment.
 
 Two LaunchAgents run as `aimac`, with automatic restart on failure: `com.valley.bustrackr` and `com.cloudflare.bustrackr`. They are loaded in the `user/501` launchd domain. After a reboot, establish an `aimac` login session and verify both services; if absent, bootstrap the two plists in `~/Library/LaunchAgents` with `launchctl bootstrap user/$(id -u) <plist>`. They are not system LaunchDaemons, so unattended boot before login is not configured. Inspect them remotely:
 
@@ -152,7 +152,11 @@ Use `excludedDates` for known school holidays and `matchWindowSeconds` to tune a
 
 `GET /api/shuttle` and the compatible `/api/detections/latest` return worker `status`, `lastCheckedAt`, `latest`, `eventCount`, and `prediction`. A prediction includes its model/schedule versions and generation time; active estimates include anchor type, range, estimated arrival time and a marker with direction, progress and lower/upper progress bounds. A missing marker means no usable position estimate. Worker states are connecting, connected, disconnected and sample. Prediction states include unconfigured, scheduled, estimated, ambiguous, unknown and offline. Ranges are labelled heuristic, not calibrated probabilities.
 
-Production history and processed receipt IDs live in `.data/alerts.json` on valley-big-mac and survive restart. Every distinct matching email is retained, including delayed/out-of-order arrivals. Message-ID retries are deduplicated; nearby separate emails have `duplicateOf` set, using a provisional 30-second grouping window. This can merge two nearby buses; raw history remains available to revise grouping. No email body/attachment is stored in history. No public history endpoint is exposed.
+Production history and processed receipt IDs live in `.data/alerts.sqlite` on valley-big-mac and survive restart. On its first start the SQLite store imports `.data/alerts.json` once and leaves that file untouched. Sightings are only appended. Every distinct matching email is retained, including delayed/out-of-order arrivals. Message-ID retries are deduplicated; nearby separate emails have `duplicateOf` set, using a provisional 30-second grouping window. This can merge two nearby buses; raw history remains available to revise grouping. No email body/attachment is stored in history. No public history endpoint is exposed.
+
+Each new sighting records the code that produced it: `BUSTRACKR_COMMIT` (null when unset), a 16-character hash of the worker's non-test `server/*.mjs` files, and the parser label `PARSER` from `server/alerts.mjs`. Bump that label when matching or timestamp rules change. The source hash changes with any worker edit, so it identifies hand-copied deployments too. Each sighting also stores the email's Message-ID and a SHA-256 of the text body the parser read, so a later parser can be checked against the same input. Sightings imported from JSON have no collector.
+
+With `SIGHTINGS_UMAMI_URL` and `SIGHTINGS_UMAMI_WEBSITE` set, the worker mirrors every sighting to that Umami website as a `camera_sighting` event dated at the camera time. Event properties are `checkpoint`, `duplicate`, `delaySeconds` (camera to Resend), `commit`, `source` and `parser`. Production sends to the loopback collector, `http://127.0.0.1:18789`, and the "BusTrackr camera sightings" website (`e8d12380-7082-43d8-b6f3-81c39539802c`) at https://analytics.valleychristianai.com. Unsent sightings are retried every minute, so the first start after the import backfills the history. The dashboard is a view; the SQLite file is the record.
 
 Export local event history as JSON lines:
 
@@ -160,13 +164,13 @@ Export local event history as JSON lines:
 npm run --silent alerts:export > .data/camera-events.jsonl
 ```
 
-Set `ALERT_STATE_FILE` explicitly to export another state file. Legacy latest-only state is migrated into history on load; records without a camera event time are preserved but excluded from estimation.
+Each line includes `collector`, `input` and `dashboardSentAt`. Set `ALERT_STATE_FILE` explicitly to export another history. Legacy latest-only state is migrated into history on import; records without a camera event time are preserved but excluded from estimation.
 
 ## Verify and host
 
 `npm run test:alerts` covers timestamp parsing, HTML email, filtering, persistent history, duplicates, schedule estimation, ambiguity, DST, delayed delivery, signed webhook delivery, recipient/authentication filtering, concurrent duplicates, retryable failures and the real sample HTTP server. `npm run build` checks the frontend and scene assets. Live delivery requires the configured Resend account, a reachable HTTPS webhook and a genuine camera message.
 
-If self-hosting the standalone worker instead of using the deployed Mac backend, use an always-on host with persistent storage and backups. Its default bind is loopback; place a TLS reverse proxy in front. Configure an exact `ALERT_ALLOWED_ORIGIN` for a separately hosted frontend. CORS is not authentication: the status API is public, so add deployment access controls if operational status should be private. API responses contain no-store headers. Feed failure hides estimated positions while retaining the timestamped last observation. The JSON store requires a single writer; move to a transactional database when scale or multiple workers require it.
+If self-hosting the standalone worker instead of using the deployed Mac backend, use an always-on host with persistent storage and backups. Its default bind is loopback; place a TLS reverse proxy in front. Configure an exact `ALERT_ALLOWED_ORIGIN` for a separately hosted frontend. CORS is not authentication: the status API is public, so add deployment access controls if operational status should be private. API responses contain no-store headers. Feed failure hides estimated positions while retaining the timestamped last observation. The SQLite store expects one worker process.
 
 See [arrival estimation research and design decisions](arrival-estimation-research.md) for the evidence, assumptions, ML upgrade path and traffic-provider restrictions.
 
