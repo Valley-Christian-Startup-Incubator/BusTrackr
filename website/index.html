@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:wght@400;500&family=Montserrat:wght@300;400;500;600;700&display=swap">
-  <link rel="stylesheet" href="style.4be92138a7a088b3.css">
-  <script defer src="analytics.0e68a29a2cbf9404.js"></script>
+  <link rel="stylesheet" href="style.1f8ed02ba466e905.css">
+  <script defer src="analytics.5950575dda87b7b2.js"></script>
 </head>
 <body>
   <a data-analytics="skip_main" class="skip" href="#main">Skip to content</a>
@@ -22,6 +22,7 @@
         <a data-analytics="nav_sightings" href="#sighting">Sightings</a>
         <a data-analytics="nav_route" href="#views">The route</a>
         <a data-analytics="nav_support" href="support.html">Support</a>
+        <a data-analytics="nav_pilot" href="#pilot">Join the pilot</a>
       </nav>
     </div>
   </header>
@@ -83,7 +84,24 @@
       </div>
     </section>
 
-
+    <section class="pilot" id="pilot" aria-labelledby="pilot-title">
+      <div class="wrap pilot-body">
+        <div class="pilot-head">
+          <h2 id="pilot-title" data-rise>Join the pilot.</h2>
+          <p data-rise>BusTrackr is running a limited pilot. Leave your email and we'll write when there's a spot for you.</p>
+        </div>
+        <form class="pilot-form" id="waitlist" data-rise>
+          <label for="waitlist-email">Email</label>
+          <div class="pilot-row">
+            <input id="waitlist-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required>
+            <button data-analytics="waitlist_join" class="button" type="submit">Join the waitlist</button>
+          </div>
+          <div class="trap" aria-hidden="true"><label for="waitlist-website">Leave this empty</label><input id="waitlist-website" name="website" tabindex="-1" autocomplete="off"></div>
+          <p class="pilot-status" id="waitlist-status" role="status"></p>
+          <p class="pilot-note">We only use your email for the pilot. <a data-analytics="waitlist_privacy" href="privacy.html#waitlist">How we handle it</a></p>
+        </form>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -105,6 +123,33 @@
   </footer>
 
   <script src="site.3e837ac6a9c78e81.js"></script>
+  <script>
+    (() => {
+      const form = document.getElementById('waitlist');
+      const status = document.getElementById('waitlist-status');
+      const button = form.querySelector('button');
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = 'Saving…';
+        try {
+          const response = await fetch('/api/waitlist', {
+            method: 'POST', headers: {'Content-Type': 'application/json', accept: 'application/json'},
+            body: JSON.stringify({email: form.email.value, website: form.website.value}), signal: AbortSignal.timeout(20000),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(body.error || "We couldn't save that right now. Try again in a minute.");
+          form.reset();
+          status.textContent = "You're on the list. Check your inbox for a confirmation.";
+          window.BusTrackrAnalytics?.track('waitlist_joined');
+        } catch (error) {
+          status.textContent = error.name === 'TimeoutError' || error instanceof TypeError ? "We couldn't reach the server. Check your connection and try again." : error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>
   <script>
     (() => {
       const text = (id, value) => {

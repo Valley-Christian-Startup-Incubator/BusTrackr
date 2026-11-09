@@ -6,6 +6,7 @@ import {boundedText, checkReceiver, createReceiver, resendApi} from './resend.mj
 import {loadState, saveState, parseAlert, recordAlert} from './alerts.mjs';
 import {estimate, validateSchedule} from './estimator.mjs';
 import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
+import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
 
 const sample = process.argv.includes('--sample');
 const once = process.argv.includes('--once');
@@ -65,6 +66,9 @@ const unavailableNotifications={publicConfig:()=>({webPushPublicKey:null,expo:fa
   register:async()=>{throw Object.assign(new Error('Notification storage unavailable'),{status:503});},
   remove:async()=>{throw Object.assign(new Error('Notification storage unavailable'),{status:503});}};
 const handleNotifications=notificationRoutes(notifications || unavailableNotifications,{allowedOrigins});
+const waitlist=!sample && process.env.RESEND_API_KEY?.trim() && process.env.WAITLIST_SEGMENT_ID?.trim() && process.env.WAITLIST_FROM?.trim()
+  ?createWaitlist({apiKey:process.env.RESEND_API_KEY,segmentId:process.env.WAITLIST_SEGMENT_ID,from:process.env.WAITLIST_FROM}):null;
+const handleWaitlist=waitlistRoutes(waitlist,{allowedOrigins});
 let notifying=false;
 const notificationTimer=!once && !sample && notifications && (delivery.config.expo || delivery.config.webPushPublicKey)?setInterval(()=>{
   if(notifying)return;
@@ -75,6 +79,7 @@ const server = createServer(async (req,res)=>{
   if (origin && allowedOrigins.includes(origin)) res.setHeader('Access-Control-Allow-Origin',origin);
   res.setHeader('Vary','Origin'); res.setHeader('Cache-Control','no-store'); res.setHeader('Content-Type','application/json');
   if (await handleNotifications(req,res)) return;
+  if (await handleWaitlist(req,res)) return;
   if (req.method === 'GET' && req.url === '/api/health') {res.end(JSON.stringify({status:missing.length?'needs_configuration':payload().status,storage:'local',missing}));return;}
   if (req.method === 'POST' && req.url === '/api/resend/inbound') {
     if (!receiver) {res.writeHead(503);res.end(JSON.stringify({error:'Receiver needs configuration'}));return;}
