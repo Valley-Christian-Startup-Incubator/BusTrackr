@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
-import {parseAlert, recordAlert, loadState, saveState} from './alerts.mjs';
+import {parseAlert, recordAlert} from './alerts.mjs';
 const config = {sender:'avigilonalerts@vcs.net', subject:'', marker:'BEI Bus has arrived.', checkpoint:'BEI campus corner'};
 const fixture = await readFile(new URL('./fixtures/avigilon-alert.eml', import.meta.url), 'utf8');
 test('matches sender, subject and zone; preserves timestamps without retaining email content', async()=>{
@@ -22,11 +22,9 @@ test('matches sender, subject and zone; preserves timestamps without retaining e
   }
   assert.equal(await parseAlert('x'.repeat(2_000_001), config), null);
 });
-test('deduplicates retries and prevents older deliveries replacing latest; persists state', async()=>{
-  const dir = await mkdtemp(join(tmpdir(), 'bustrackr-alerts-'));
-  try {
-    const path = join(dir, 'state.json');
-    const state = await loadState(path);
+test('deduplicates retries and prevents older deliveries replacing latest', async()=>{
+  const state = {events:[], latest:null};
+  {
     const alert = await parseAlert(fixture, config);
     assert.equal(recordAlert(state, alert), true);
     assert.equal(recordAlert(state, {...alert, receivedAt:new Date(Date.now()+1000).toISOString()}), false);
@@ -35,9 +33,13 @@ test('deduplicates retries and prevents older deliveries replacing latest; persi
     assert.equal(recordAlert(state, {...alert,id:'repeat-notification'}), true);
     assert.equal(state.events.at(-1).duplicateOf,alert.id);
     assert.equal(state.events.length,3);
-    await saveState(path, state);
-    assert.deepEqual(await loadState(path), state);
-  } finally { await rm(dir, {recursive:true, force:true}); }
+  }
+});
+test('records the raw email identity without keeping its content', async()=>{
+  const alert = await parseAlert(fixture, config, new Date('2026-10-16T21:07:00Z'));
+  assert.match(alert.input.messageId, /@/);
+  assert.match(alert.input.bodySha256, /^[a-f0-9]{64}$/);
+  assert.equal(JSON.stringify(alert).includes('BEI Bus has arrived'), false);
 });
 test('sample email reaches actual HTTP API and persists across restart', async()=>{
   const dir = await mkdtemp(join(tmpdir(), 'bustrackr-api-'));

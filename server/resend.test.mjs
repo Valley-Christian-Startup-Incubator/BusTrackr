@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:http';
 import {Webhook} from 'svix';
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {boundedText, checkReceiver, createReceiver, receivedAlert, resendApi} from './resend.mjs';
+import {openHistory} from './history.mjs';
 
 const secret = `whsec_${randomBytes(32).toString('base64')}`;
 const config = {sender:'avigilonalerts@vcs.net', subject:'', marker:'BEI Bus has arrived.', checkpoint:'BEI campus corner', recipient:'camera@example.com', webhookSecret:secret, webhookId:'hook-test', webhookUrl:'https://example.com/api/resend/inbound', cooldownSeconds:30};
@@ -14,9 +18,10 @@ function signed(data = {type:'email.received',data:{email_id:emailId,to:[config.
   return {raw, headers:{'svix-id':id, 'svix-timestamp':timestamp, 'svix-signature':new Webhook(secret).sign(id,time,raw)}};
 }
 function harness(overrides = {}) {
-  const state = {events:[],latest:null}; let saved, calls=0;
-  const receiver = createReceiver({state,config,api:async()=>{calls++; return mail;},persist:async next=>{saved=structuredClone(next);},...overrides});
-  return {state,receiver,get saved(){return saved;},get calls(){return calls;}};
+  const path = overrides.path ?? join(mkdtempSync(join(tmpdir(), 'bustrackr-receiver-')), 'history.sqlite');
+  const history = overrides.history ?? openHistory(path); let calls=0;
+  const receiver = createReceiver({history,config,api:async()=>{calls++; return mail;},...overrides});
+  return {path,history,state:history.state,receiver,get calls(){return calls;}};
 }
 test('receiving email preserves camera, reported and received times and filters recipient/authentication/sender', async()=>{
   const alert = await receivedAlert(mail,config);
@@ -39,12 +44,14 @@ test('concurrent duplicate deliveries persist once and stay idempotent after res
   const h=harness(), event=signed();
   const results=await Promise.all(Array.from({length:5},()=>h.receiver.handle(event.raw,event.headers)));
   assert(results.every(result=>result.status===200)); assert.equal(h.calls,1); assert.equal(h.state.events.length,1);
-  const restarted=harness({state:h.saved,api:async()=>{throw new Error('Must not fetch duplicate');}});
+  const restarted=harness({path:h.path,api:async()=>{throw new Error('Must not fetch duplicate');}});
   assert.equal((await restarted.receiver.handle(event.raw,event.headers)).status,200);
 });
 test('failed persistence returns a retryable status without committing in-memory state', async()=>{
   let fail=true;
-  const h=harness({persist:async()=>{if(fail)throw new Error('Disk unavailable');}}), event=signed();
+  const history=openHistory(':memory:'), record=history.record;
+  history.record=(...args)=>{if(fail)throw new Error('Disk unavailable');return record(...args);};
+  const h=harness({history}), event=signed();
   assert.equal((await h.receiver.handle(event.raw,event.headers)).status,503);
   assert.equal(h.receiver.healthy,false); assert.equal(h.state.events.length,0);
   fail=false;
@@ -91,7 +98,7 @@ test('signed HTTP delivery reaches camera history and rejects invalid authentica
     assert.equal((await fetch(url,{method:'POST',body:event.raw})).status,400);
     assert.equal((await fetch(url,{method:'POST',body:event.raw,headers:event.headers})).status,200);
     assert.equal(h.state.latest.eventAt,'2026-10-16T21:06:43.000Z');
-    assert.equal(h.saved.events.length,1);
+    assert.equal(openHistory(h.path).state.events.length,1);
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
 

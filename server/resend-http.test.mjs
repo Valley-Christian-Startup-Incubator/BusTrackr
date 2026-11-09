@@ -8,6 +8,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {Webhook} from 'svix';
+import {DatabaseSync} from 'node:sqlite';
 
 test('actual inbound HTTP server persists, retries, survives restart and retains observation during ingestion failure', async()=>{
   const dir=await mkdtemp(join(tmpdir(),'bustrackr-resend-'));
@@ -71,8 +72,11 @@ test('actual inbound HTTP server persists, retries, survives restart and retains
     await stop();
     assert.equal((await start()).eventCount,2);
     assert.equal((await deliver(ids[0])).status,200);
-    const persisted=JSON.parse(await readFile(join(dir,'state.json'),'utf8'));
-    assert.equal(persisted.events.length,2);assert.equal(persisted.resendReceipts.length,2);
-    assert.equal(persisted.events[0].text,undefined);
+    const db=new DatabaseSync(join(dir,'state.sqlite'),{readOnly:true});
+    const rows=db.prepare('SELECT * FROM sightings ORDER BY seq').all();
+    assert.equal(rows.length,2);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM receipts').get().n,2);
+    assert.equal(rows[0].parser,'camera-email-v1');assert.match(rows[0].collector_source,/^[a-f0-9]{16}$/);
+    assert.match(rows[0].body_sha256,/^[a-f0-9]{64}$/);
+    db.close();
   } finally {await stop();await rm(dir,{recursive:true,force:true});}
 });

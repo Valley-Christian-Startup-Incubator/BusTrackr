@@ -1,3 +1,4 @@
-import {loadState} from './alerts.mjs';
-const state=await loadState(process.env.ALERT_STATE_FILE || '.data/alerts.json');
-for(const event of state.events)process.stdout.write(JSON.stringify(event)+'\n');
+import {openHistory} from './history.mjs';
+const statePath=process.env.ALERT_STATE_FILE || '.data/alerts.json';
+const history=openHistory(statePath.replace(/\.json$/, '')+'.sqlite',{legacyPath:statePath});
+for(const sighting of history.all())process.stdout.write(JSON.stringify(sighting)+'\n');

@@ -1,9 +1,13 @@
 import {serveWebsite} from './website.mjs';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
+import {dirname, join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 import {boundedText, checkReceiver, createReceiver, resendApi} from './resend.mjs';
-import {loadState, saveState, parseAlert, recordAlert} from './alerts.mjs';
+import {PARSER, parseAlert} from './alerts.mjs';
+import {collectorSource, openHistory} from './history.mjs';
+import {dashboardSync, umamiSink} from './dashboard.mjs';
 import {estimate, validateSchedule} from './estimator.mjs';
 import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
 import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
@@ -23,7 +27,11 @@ const config = {
   cooldownSeconds:Number(process.env.CAMERA_COOLDOWN_SECONDS || 30),
 };
 const statePath = process.env.ALERT_STATE_FILE || (sample ? '.data/sample-alerts.json' : '.data/alerts.json');
-const state = await loadState(statePath);
+const historyPath = statePath.replace(/\.json$/, '') + '.sqlite';
+const history = openHistory(historyPath, {legacyPath:statePath, collector:{
+  commit:process.env.BUSTRACKR_COMMIT || null, source:collectorSource(fileURLToPath(new URL('.', import.meta.url))), parser:PARSER,
+}});
+const state = history.state;
 let schedule = validateSchedule(JSON.parse(await readFile(process.env.ALERT_SCHEDULE_FILE || new URL('./schedule.json', import.meta.url), 'utf8')));
 let status = sample ? 'sample' : missing.length ? 'disconnected' : 'connecting';
 let lastCheckedAt = null;
@@ -32,15 +40,14 @@ const interval = Number(process.env.RESEND_HEALTH_SECONDS || 30);
 if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isFinite(interval) || interval < 5 || interval > 60 || !Number.isFinite(config.cooldownSeconds) || config.cooldownSeconds<0 || config.cooldownSeconds>300) throw new Error('Invalid port, health interval, or cooldown setting');
 if (!sample && !missing.length && (!/^https:\/\//.test(config.webhookUrl) || !config.recipient.split(',').every(value => /^[^\s@]+@[^\s@]+$/.test(value.trim())))) throw new Error('Set an HTTPS webhook URL and receiving email address');
 const api = sample ? null : resendApi(process.env.RESEND_API_KEY);
-const receiver = sample || missing.length ? null : createReceiver({state, config, api, persist: next => saveState(statePath, next)});
+const receiver = sample || missing.length ? null : createReceiver({history, config, api});
 if (sample) {
   if (!state.events.length) {
     const seen = new Date(Date.now()-120_000);
     const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZoneName:'short'}).formatToParts(seen).map(p=>[p.type,p.value]));
     const stamp=`[${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} ${p.dayPeriod} (${p.timeZoneName})]`;
     const fixture = (await readFile(new URL('./fixtures/avigilon-alert.eml', import.meta.url),'utf8')).replace(/\[2026-Oct-16[^\]]+\]/,stamp);
-    recordAlert(state,await parseAlert(fixture,config));
-    await saveState(statePath,state);
+    history.record(await parseAlert(fixture,config),null,config.cooldownSeconds);
   }
   const event=state.events.find(e=>!e.duplicateOf && e.eventAt);
   if (!event) throw new Error('Remove or migrate legacy sample state to run the new sample');
@@ -69,6 +76,15 @@ const handleNotifications=notificationRoutes(notifications || unavailableNotific
 const waitlist=!sample && process.env.RESEND_API_KEY?.trim() && process.env.WAITLIST_SEGMENT_ID?.trim() && process.env.WAITLIST_FROM?.trim()
   ?createWaitlist({apiKey:process.env.RESEND_API_KEY,segmentId:process.env.WAITLIST_SEGMENT_ID,from:process.env.WAITLIST_FROM}):null;
 const handleWaitlist=waitlistRoutes(waitlist,{allowedOrigins});
+const dashboard=process.env.SIGHTINGS_UMAMI_URL && process.env.SIGHTINGS_UMAMI_WEBSITE?
+  dashboardSync(history,umamiSink({url:process.env.SIGHTINGS_UMAMI_URL,website:process.env.SIGHTINGS_UMAMI_WEBSITE})):null;
+function maintainHistory() {
+  dashboard?.().catch(error=>console.error(`Dashboard sync failed; will retry. ${error.message}`));
+  try {const file=history.snapshot(join(dirname(historyPath),'backups'));if(file)console.log(`Saved camera history snapshot ${file}`);}
+  catch {console.error('Camera history snapshot failed; will retry.');}
+}
+const historyTimer=once?null:setInterval(maintainHistory,60_000);
+if(!once)maintainHistory();
 let notifying=false;
 const notificationTimer=!once && !sample && notifications && (delivery.config.expo || delivery.config.webPushPublicKey)?setInterval(()=>{
   if(notifying)return;
@@ -87,6 +103,7 @@ const server = createServer(async (req,res)=>{
       const raw = await boundedText(req, 64_000);
       const result = await receiver.handle(raw, req.headers);
       res.writeHead(result.status); res.end(JSON.stringify(result.body));
+      if (result.body.stored) maintainHistory();
     } catch {res.writeHead(413); res.end(JSON.stringify({error:'Invalid or oversized request'}));}
     return;
   }
@@ -98,7 +115,7 @@ if (!once) server.listen(port,process.env.ALERT_HOST || '127.0.0.1',()=>console.
 let stopping=false;
 const abort=new AbortController();
 server.requestTimeout = 20_000;
-for (const signal of ['SIGINT','SIGTERM']) process.on(signal,()=>{stopping=true;abort.abort();if(notificationTimer)clearInterval(notificationTimer);server.close();});
+for (const signal of ['SIGINT','SIGTERM']) process.on(signal,()=>{stopping=true;abort.abort();if(notificationTimer)clearInterval(notificationTimer);if(historyTimer)clearInterval(historyTimer);server.close();});
 if (!sample && !missing.length) {
   while (!stopping) {
     try {
