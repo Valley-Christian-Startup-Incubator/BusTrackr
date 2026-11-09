@@ -25,7 +25,7 @@ try {
   offline=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
   await page.getByText(/A newer bus may have passed/).waitFor();
   assert.equal(await numeral.innerText(),'10');
-  assert.equal(await numeral.evaluate(el=>getComputedStyle(el).color),'rgb(83, 100, 92)');
+  assert.equal(await numeral.evaluate(el=>getComputedStyle(el).color),'rgb(0, 51, 96)');
   await page.screenshot({path:`${out}/mobile-offline.png`});
   offline=false;missing=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
   await page.getByText('No detections yet',{exact:true}).waitFor();

@@ -12,7 +12,8 @@ const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
     const relative = path.slice(1) || 'index.html';
-    const file = path === '/about.html' ? 'website/index.html' : ['support.html','privacy.html'].includes(relative) ? 'website/' + relative : 'dist/' + relative;
+    // Production layout: the landing page at / (and its /about.html copy), the tracker at /app.
+    const file = ['/', '/index.html', '/about.html'].includes(path) ? 'website/index.html' : path === '/app' ? 'dist/app.html' : ['support.html','privacy.html'].includes(relative) ? 'website/' + relative : 'dist/' + relative;
     const data = await readFile(new URL(file, root)).catch(() => readFile(new URL('website/' + relative, root)));
     res.writeHead(200, {'content-type': mime[file.split('.').pop()] || 'application/octet-stream'});res.end(data);
   } catch {res.writeHead(404);res.end();}
@@ -107,7 +108,7 @@ try {
   assert(!JSON.stringify(a.events).includes('private'));
   assert(!JSON.stringify(a.events).includes('hidden'));
   assert.equal(a.recorders.length,0,'Recorder skips unsanitized page URLs');
-  for (const path of ['/support.html','/privacy.html','/']) {
+  for (const path of ['/support.html','/privacy.html','/app']) {
     const previous=pageviews(a.events).length;
     await a.page.goto(origin+path);await audit(a.page);
     await waitForCollection(()=>pageviews(a.events).length>previous);
@@ -120,7 +121,7 @@ try {
   await waitForCollection(()=>clicks(a.events,'feed_refresh').length>=1);assert.equal(clicks(a.events,'feed_refresh').length,1);
   assert.equal(a.recorders.length,4,'Each clean static or app document loads one recorder');
   console.log('Native identity and static pages passed.');
-  const returning=await setup({staleBootstrap:true});await returning.page.goto(origin+'/');
+  const returning=await setup({staleBootstrap:true});await returning.page.goto(origin+'/app');
   await returning.page.locator('.simple-screen').waitFor();
   await waitForCollection(()=>pageviews(returning.events).length>=1);
   assert.equal(await returning.page.evaluate(()=>window.legacyAnalyticsBootstrap),undefined,'Returning browser does not reuse the cached pre-migration bootstrap');
@@ -182,27 +183,27 @@ try {
     assert.deepEqual(Object.keys(event.payload.data).sort(),event.payload.name==='app_view'?['surface','value']:['control','surface']);
   }
   console.log('Registry, randomness, queue and fallback checks passed.');
-  const delayedApp=await setup({delayed:true});await delayedApp.page.goto(origin+'/',{waitUntil:'domcontentloaded'});
+  const delayedApp=await setup({delayed:true});await delayedApp.page.goto(origin+'/app',{waitUntil:'domcontentloaded'});
   await delayedApp.page.locator('.simple-screen').waitFor();await delayedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.equal(delayedApp.events.length,0);delayedApp.release();await delayedApp.page.waitForLoadState('load');await waitForCollection(()=>clicks(delayedApp.events,'feed_refresh').length>=1&&delayedApp.events.some(e=>e.payload.name==='app_view'));assert.equal(clicks(delayedApp.events,'feed_refresh').length,1);assert.equal(delayedApp.events.filter(e=>e.payload.name==='app_view').length,1);
-  const blockedApp=await setup({blocked:true});await blockedApp.page.goto(origin+'/');await blockedApp.page.locator('.simple-screen').waitFor();await blockedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.deepEqual(blockedApp.errors,[]);
-  const delayedRecorder=await setup({recorderDelayed:true});await delayedRecorder.page.goto(origin+'/',{waitUntil:'domcontentloaded'});
+  const blockedApp=await setup({blocked:true});await blockedApp.page.goto(origin+'/app');await blockedApp.page.locator('.simple-screen').waitFor();await blockedApp.page.locator('[data-analytics="feed_refresh"]').click();assert.deepEqual(blockedApp.errors,[]);
+  const delayedRecorder=await setup({recorderDelayed:true});await delayedRecorder.page.goto(origin+'/app',{waitUntil:'domcontentloaded'});
   await delayedRecorder.page.locator('.simple-screen').waitFor();await delayedRecorder.page.locator('[data-analytics="feed_refresh"]').click();
   await waitForCollection(()=>clicks(delayedRecorder.events,'feed_refresh').length>=1&&delayedRecorder.recorders.length>=1);
   assert.equal(await delayedRecorder.page.evaluate(()=>window.recorderLoaded),undefined,'App and tracking work before recorder loads');
   delayedRecorder.release();await delayedRecorder.page.waitForFunction(()=>window.recorderLoaded===true);assert.deepEqual(delayedRecorder.errors,[]);
-  const blockedRecorder=await setup({recorderBlocked:true});await blockedRecorder.page.goto(origin+'/');
+  const blockedRecorder=await setup({recorderBlocked:true});await blockedRecorder.page.goto(origin+'/app');
   await blockedRecorder.page.locator('[data-analytics="feed_refresh"]').click();await waitForCollection(()=>clicks(blockedRecorder.events,'feed_refresh').length>=1);
   assert.deepEqual(blockedRecorder.errors,[],'Blocked recorder does not interrupt app or event tracking');
   const expired=await setup({delayed:true});await expired.page.clock.install();await expired.page.goto(origin+'/about.html',{waitUntil:'commit'});await expired.page.waitForFunction(()=>!!window.BusTrackrAnalytics);
   await expired.page.locator('[data-analytics="nav_sightings"]').click();await expired.page.clock.fastForward(31_000);expired.release();await expired.page.waitForLoadState('load');await waitForCollection(()=>pageviews(expired.events).length>=1);await expired.page.waitForTimeout(50);
   assert.equal(clicks(expired.events,'nav_sightings').length,0,'Expired queue is discarded');
   await expired.page.locator('[data-analytics="nav_sightings"]').click();await waitForCollection(()=>clicks(expired.events,'nav_sightings').length>=1);assert.equal(clicks(expired.events,'nav_sightings').length,1,'Late tracker accepts future events');
-  const marker=await setup();await marker.page.goto(origin+'/?notification_open=1');await waitForCollection(()=>marker.events.some(e=>e.payload.name==='notification_open'));assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);assert(!marker.page.url().includes('notification_open'));await marker.page.reload();await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);
+  const marker=await setup();await marker.page.goto(origin+'/app?notification_open=1');await waitForCollection(()=>marker.events.some(e=>e.payload.name==='notification_open'));assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);assert(!marker.page.url().includes('notification_open'));await marker.page.reload();await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1);
   await marker.page.evaluate(()=>window.dispatchEvent(new MessageEvent('message',{origin:location.origin,data:{type:'bustrackr_notification_open'},source:window})));await marker.page.waitForTimeout(50);assert.equal(marker.events.filter(e=>e.payload.name==='notification_open').length,1,'Window messages cannot impersonate worker opens');
   const opt=await setup({optedOut:true});await opt.page.goto(origin+'/about.html');await opt.page.waitForTimeout(100);
   assert.equal(await opt.page.evaluate(()=>localStorage.getItem('bustrackr.analytics.browser.v1')),null);assert.equal(opt.events.length,0);assert.equal(opt.recorders.length,0,'Opt-out suppresses recorder');
   assert.equal(await opt.page.evaluate(()=>typeof window.BusTrackrAnalytics),'undefined');
-  const notice=await setup({notifications:true});await notice.page.goto(origin+'/');
+  const notice=await setup({notifications:true});await notice.page.goto(origin+'/app');
   await notice.page.getByRole('button',{name:'Notify me',exact:true}).click();
   await notice.page.getByRole('button',{name:'Notifications on',exact:true}).waitFor();
   await notice.page.getByRole('button',{name:'Notifications on',exact:true}).click();
@@ -210,26 +211,26 @@ try {
   assert.deepEqual(notice.subscriptions,['POST','DELETE']);
   assert.deepEqual(notice.events.filter(e=>e.payload.name?.startsWith('notification_')).map(e=>[e.payload.name,e.payload.data.value]),[['notification_permission','granted'],['notification_enabled',undefined],['notification_disabled',undefined]]);
   assert(!JSON.stringify(notice.events).includes('private-'));
-  const failure=await setup({notifications:true,failSubscription:true});await failure.page.goto(origin+'/');
+  const failure=await setup({notifications:true,failSubscription:true});await failure.page.goto(origin+'/app');
   await failure.page.getByRole('button',{name:'Notify me',exact:true}).click();
   await failure.page.getByRole('button',{name:'Retry enabling',exact:true}).waitFor();await audit(failure.page);await waitForCollection(()=>failure.events.some(e=>e.payload.name==='notification_failure'));
   assert.equal(failure.events.filter(e=>e.payload.name==='notification_enabled').length,0);
   assert.equal(failure.events.find(e=>e.payload.name==='notification_failure').payload.data.value,'enable');
-  const localhost=await browser.newPage();await localhost.goto(local+'/');
+  const localhost=await browser.newPage();await localhost.goto(local+'/app');
   assert.equal(await localhost.evaluate(()=>localStorage.getItem('bustrackr.analytics.browser.v1')),null);
   assert.equal(await localhost.evaluate(()=>typeof window.BusTrackrAnalytics),'undefined');
   assert.equal(await localhost.locator('script[src*="analytics.valleychristianai.com"]').count(),0,'Local development loads neither tracker nor recorder');
   const workerHandlers={};let signal,opened,focused=false;
-  vm.runInNewContext(await readFile(new URL('public/notifications-sw.js',root),'utf8'),{URL,self:{addEventListener:(name,handler)=>workerHandlers[name]=handler,registration:{scope:origin+'/'},clients:{matchAll:async()=>[{url:origin+'/',postMessage:data=>signal=data,focus:async()=>{focused=true;}}],openWindow:async url=>{opened=url;}}}});
+  vm.runInNewContext(await readFile(new URL('public/notifications-sw.js',root),'utf8'),{URL,self:{addEventListener:(name,handler)=>workerHandlers[name]=handler,registration:{scope:origin+'/'},clients:{matchAll:async()=>[{url:origin+'/app',postMessage:data=>signal=data,focus:async()=>{focused=true;}}],openWindow:async url=>{opened=url;}}}});
   let completed;workerHandlers.notificationclick({notification:{close(){}},waitUntil:promise=>{completed=promise;}});await completed;
   assert.equal(signal.type,'bustrackr_notification_open');assert(focused);assert.equal(opened,undefined);
   const closedMessageHandlers={};let focusedAfterMessageFailure=false;
-  vm.runInNewContext(await readFile(new URL('public/notifications-sw.js',root),'utf8'),{URL,self:{addEventListener:(name,handler)=>closedMessageHandlers[name]=handler,registration:{scope:origin+'/'},clients:{matchAll:async()=>[{url:origin+'/',postMessage(){throw new Error('Client document was replaced');},focus:async()=>{focusedAfterMessageFailure=true;}}]}}});
+  vm.runInNewContext(await readFile(new URL('public/notifications-sw.js',root),'utf8'),{URL,self:{addEventListener:(name,handler)=>closedMessageHandlers[name]=handler,registration:{scope:origin+'/'},clients:{matchAll:async()=>[{url:origin+'/app',postMessage(){throw new Error('Client document was replaced');},focus:async()=>{focusedAfterMessageFailure=true;}}]}}});
   closedMessageHandlers.notificationclick({notification:{close(){}},waitUntil:promise=>{completed=promise;}});await completed;
   assert(focusedAfterMessageFailure,'Analytics message failure cannot prevent opening the app');
   const freshHandlers={};let shown;
   vm.runInNewContext(await readFile(new URL('public/notifications-sw.js',root),'utf8'),{URL,self:{addEventListener:(name,handler)=>freshHandlers[name]=handler,registration:{scope:origin+'/',showNotification:async(title,options)=>{shown={title,options};}},clients:{matchAll:async()=>[],openWindow:async url=>{opened=url;}}}});
-  freshHandlers.notificationclick({notification:{close(){}},waitUntil:promise=>{completed=promise;}});await completed;assert.equal(opened,origin+'/?notification_open=1');
-  freshHandlers.push({data:{json:()=>({title:'Bus sighting',body:'New sighting',eventId:'event-1'})},waitUntil:promise=>{completed=promise;}});await completed;assert.equal(shown.title,'Bus sighting');assert.equal(shown.options.body,'New sighting');assert.equal(shown.options.tag,'event-1');assert.equal(shown.options.data.url,origin+'/');
+  freshHandlers.notificationclick({notification:{close(){}},waitUntil:promise=>{completed=promise;}});await completed;assert.equal(opened,origin+'/app?notification_open=1');
+  freshHandlers.push({data:{json:()=>({title:'Bus sighting',body:'New sighting',eventId:'event-1'})},waitUntil:promise=>{completed=promise;}});await completed;assert.equal(shown.title,'Bus sighting');assert.equal(shown.options.body,'New sighting');assert.equal(shown.options.tag,'event-1');assert.equal(shown.options.data.url,origin+'/app');
   console.log('Sitewide analytics passed. Native tracker identity, control coverage, dynamic map, single events, URL privacy, queue, blocked storage/tracker, localhost and notification focus verified.');
 } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}

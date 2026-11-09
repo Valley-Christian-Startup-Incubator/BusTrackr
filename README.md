@@ -24,7 +24,7 @@ npm run build
 npm run preview -- --port 4174
 ```
 
-The production base path is `/`. The tracker opens at `https://bustrackr.valleychristianai.com/`; the product overview is at `/about.html`. The website, map, and API are self-hosted on `valley-big-mac`. Use the [atomic website deployment procedure](docs/website-deployment.md) for website and map releases. These releases do not restart the camera worker or Cloudflare tunnel.
+The production base path is `/`. The landing page is `https://bustrackr.valleychristianai.com/` and the tracker opens at `/app` (its Vite entry is `app.html`); `/about.html` remains a copy of the landing page for older links. The website, map, and API are self-hosted on `valley-big-mac`. Use the [atomic website deployment procedure](docs/website-deployment.md) for website and map releases. These releases do not restart the camera worker or Cloudflare tunnel.
 
 ## Camera email alerts
 

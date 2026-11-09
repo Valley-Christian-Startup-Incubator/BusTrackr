@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright';
 
-const url = new URL(process.argv[2] || 'https://bustrackr.valleychristianai.com/');
+const url = new URL(process.argv[2] || 'https://bustrackr.valleychristianai.com/app');
 const campaign = `analytics-verification-${randomUUID()}`;
 url.searchParams.set('utm_source', 'verification');
 url.searchParams.set('utm_campaign', campaign);
