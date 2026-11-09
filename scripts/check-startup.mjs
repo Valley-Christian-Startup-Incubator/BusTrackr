@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { chromium, firefox } from 'playwright';
 
 // Run against `npm run preview -- --port 4174` after building.
-const url=process.env.STARTUP_URL||'http://localhost:4174/';
+const url=process.env.STARTUP_URL||'http://localhost:4174/app';
 const browser=await (process.env.BROWSER==='firefox'?firefox:chromium).launch({
  headless:process.env.HEADED!=='1',
  ...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{}),

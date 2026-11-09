@@ -20,7 +20,7 @@ for (const name of ['style.css','site.js','analytics.js']) {
     if (check) {
       if (!bytes.equals(await readFile(asset))) throw new Error(`Stale public/${versioned}`);
     } else await writeFile(asset,bytes);
-    const entry = new URL('../index.html',import.meta.url), html = await readFile(entry,'utf8');
+    const entry = new URL('../app.html',import.meta.url), html = await readFile(entry,'utf8');
     const next = html.replace(/(["'])\/analytics(?:\.[a-f0-9]+)?\.js\1/g,`"/${versioned}"`);
     if (!next.includes(`"/${versioned}"`)) throw new Error('Missing app analytics bootstrap');
     if (check && next !== html) throw new Error('Run npm run website:prepare: app analytics URL is stale');

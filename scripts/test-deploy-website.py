@@ -34,7 +34,7 @@ class WebsiteDeploymentTests(unittest.TestCase):
         shutil.copy2(HERE / 'version-website-assets.mjs', self.source / 'scripts/version-website-assets.mjs')
         (self.source / 'public').mkdir()
         shutil.copy2(HERE.parent / 'public/analytics.js', self.source / 'public/analytics.js')
-        (self.source / 'index.html').write_text('<html><head><script defer src="/analytics.js"></script></head><body></body></html>')
+        (self.source / 'app.html').write_text('<html><head><script defer src="/analytics.js"></script></head><body></body></html>')
         self.write_site('first')
         self.first = self.commit()
         self.root.mkdir()

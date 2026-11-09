@@ -1,6 +1,6 @@
 # Website releases without worker restarts
 
-The deployment controller publishes the product website and the React map from `Valley-Christian-Startup-Incubator/BusTrackr` branch `main`. The watcher checks every 60 seconds. The tracker lives at `/` and the product overview at `/about.html` on the same host. Old `/BusTrackr/` links redirect to `/`, retaining query parameters. It uses `/api/shuttle` on that host.
+The deployment controller publishes the product website and the React map from `Valley-Christian-Startup-Incubator/BusTrackr` branch `main`. The watcher checks every 60 seconds. The landing page lives at `/` and the tracker at `/app` (Vite's entry is `app.html`, so the map build no longer overwrites the website's `index.html`). `/about.html` stays as a copy of the landing page. Old `/BusTrackr/` links redirect to `/`, retaining query parameters. It uses `/api/shuttle` on that host.
 
 Website releases do not restart the frontend, camera worker, notification delivery, or Cloudflare tunnel. The camera worker remains the only writer of camera and notification state. Backend code upgrades, persistent schema changes, and host upgrades remain separate operations. Do not claim that this controller provides rolling upgrades for those processes.
 
@@ -75,4 +75,4 @@ The checks use the actual static handler. They exercise continuous requests duri
 
 The public Cloudflare tunnel routes both hostnames to the stable frontend at `127.0.0.1:18788`. The frontend serves the current website root and streams `/api/*` to the existing camera worker at `127.0.0.1:18787`. The launchd labels are `com.valley.bustrackr.frontend`, `com.valley.bustrackr`, and `com.cloudflare.bustrackr`. Website releases do not reload these jobs.
 
-The retired Vercel backend sources and GitHub Pages deployment workflow have been removed. The self-hosted map is available at `https://bustrackr.valleychristianai.com/`.
+The retired Vercel backend sources and GitHub Pages deployment workflow have been removed. The self-hosted map is available at `https://bustrackr.valleychristianai.com/app`.

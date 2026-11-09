@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
 
-const url = process.argv[2] || 'http://127.0.0.1:4174/';
+const url = process.argv[2] || 'http://127.0.0.1:4174/app';
 const now = Date.parse('2026-11-02T23:30:00Z');
 const browser = await chromium.launch();
 const context = await browser.newContext({viewport: {width: 390, height: 844}});
@@ -58,7 +58,7 @@ try {
   await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
   await page.getByText('Offline. A newer bus may have passed.').waitFor();
   assert.equal(await page.getByTestId('observation-age').textContent(), '10');
-  assert.equal(await page.getByTestId('observation-age').evaluate(node => getComputedStyle(node).color), 'rgb(83, 100, 92)');
+  assert.equal(await page.getByTestId('observation-age').evaluate(node => getComputedStyle(node).color), 'rgb(0, 51, 96)');
   failed = false;
   missing = true;
   await page.getByRole('button', {name: 'Refresh feed', exact: true}).click();
