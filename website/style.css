@@ -1,13 +1,16 @@
 :root {
   color-scheme: light;
-  --accent: #456354;
-  --bus: #d2decd;
-  --ink: #263b37;
-  --board: #dfe6dc;
-  --paper: #edf0e9;
-  --surface: #e1e5dc;
-  --muted: #53645c;
-  --on-dark: #d5ded5;
+  /* Valley Christian Schools palette: PMS 540 navy, PMS 2905 Columbia, Cool Gray 8. */
+  --navy: #003360;
+  --columbia: #8cd2f4;
+  --gray: #a7a9ac;
+  --accent: var(--navy);
+  --ink: var(--navy);
+  --board: var(--columbia);
+  --paper: #ffffff;
+  --surface: #eef7fc;
+  --muted: var(--navy);
+  --on-dark: var(--columbia);
   --gutter: clamp(20px, 4.5vw, 72px);
   --gap: clamp(56px, 7vw, 112px);
   --step-small: .875rem;
@@ -15,7 +18,10 @@
   --step-lead: clamp(1.25rem, 1.1rem + .7vw, 1.625rem);
   --step-head: clamp(2.25rem, 4vw, 4rem);
   --ease: cubic-bezier(.2, .7, .2, 1);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
+  /* Montserrat stands in for Gotham/Proxima Nova, Libre Bodoni for Filosofia; Arial and Times are the brand's own fallbacks. */
+  --sans: "Montserrat", Arial, sans-serif;
+  --serif: "Libre Bodoni", "Times New Roman", serif;
+  font-family: var(--sans);
   font-size: 100%;
   line-height: 1.5;
   color: var(--ink);
@@ -32,7 +38,7 @@ a { color: inherit; text-underline-offset: .18em; text-decoration-thickness: .08
 a:hover { text-underline-offset: .32em; }
 :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
 
-h1, h2, h3 { font-weight: 600; letter-spacing: -.035em; line-height: 1.02; text-wrap: balance; }
+h1, h2, h3 { font-weight: 300; letter-spacing: -.03em; line-height: 1.04; text-wrap: balance; }
 h2 { font-size: var(--step-head); }
 
 .wrap { width: 100%; padding-inline: var(--gutter); }
@@ -44,8 +50,8 @@ h2 { font-size: var(--step-head); }
 
 /* The name, as wide as the page. site.js trims it to the exact content width. */
 
-.button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 24px; gap: 24px; background: var(--accent); color: #f5f7f1; font-weight: 600; letter-spacing: -.01em; text-decoration: none; transition: transform .2s var(--ease), background-color .2s var(--ease); }
-.button:hover { background: var(--board); transform: translateY(-2px); }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 24px; gap: 24px; background: var(--accent); color: #ffffff; font-weight: 600; letter-spacing: -.01em; text-decoration: none; transition: transform .2s var(--ease), background-color .2s var(--ease); }
+.button:hover { background: var(--columbia); color: var(--navy); transform: translateY(-2px); }
 .button:active { transform: translateY(0) scale(.98); }
 .button:focus-visible { outline-color: var(--ink); }
 .button.secondary { background: var(--paper); color: var(--ink); }
@@ -61,11 +67,11 @@ h2 { font-size: var(--step-head); }
 .site-nav a:not(.button):hover, .site-nav a[aria-current="page"] { text-decoration: underline; }
 .site-nav .button { min-height: 44px; padding: 8px 18px; }
 
-/* The quiet ground and soft greens are drawn from the map itself. */
+/* Open white ground: the brand's expansive, airy look. */
 .hero { background: var(--paper); padding-block: 24px 64px; }
 .hero-layout { display: grid; gap: 36px; }
 .hero-copy { align-self: center; }
-.hero h1 { font-size: clamp(52px, 7vw, 104px); font-weight: 600; letter-spacing: -.055em; line-height: .98; }
+.hero h1 { font-size: clamp(52px, 7vw, 104px); font-weight: 300; letter-spacing: -.045em; line-height: 1; }
 .hero-copy .lede { margin-top: 30px; max-width: 28em; font-size: var(--step-body); line-height: 1.55; font-weight: 400; letter-spacing: 0; }
 .hero-action { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; margin-top: 28px; }
 .hero-live { font-size: var(--step-small); color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -86,12 +92,13 @@ h2 { font-size: var(--step-head); }
 .board { background: var(--board); color: var(--ink); isolation: isolate; }
 .board-grid { display: grid; gap: 40px; }
 .board-copy { padding-block: var(--gap); }
-.board h2 { font-size: var(--step-lead); letter-spacing: -.015em; }
-.board-time { margin-top: 20px; font-size: 10vw; font-weight: 600; line-height: .95; letter-spacing: -.05em; color: var(--ink); }
+.board h2 { font-size: var(--step-lead); font-weight: 600; letter-spacing: -.015em; }
+/* The serif of the division wordmarks, set as the departure board. */
+.board-time { margin-top: 20px; font-family: var(--serif); font-size: 10vw; font-weight: 400; line-height: .95; letter-spacing: -.03em; color: var(--ink); font-variant-numeric: lining-nums; }
 .board-copy .lede { margin-top: 20px; }
 .facts { display: grid; gap: 20px; margin-top: clamp(32px, 4vw, 56px); }
 .facts dt { font-size: var(--step-small); color: var(--muted); }
-.facts dd { margin-top: 2px; font-weight: 700; letter-spacing: -.01em; }
+.facts dd { margin-top: 2px; font-weight: 600; letter-spacing: -.01em; }
 .board-note { margin-top: clamp(28px, 3vw, 40px); max-width: 38em; color: var(--muted); }
 .board-note a { color: var(--ink); white-space: nowrap; }
 /* The capture's dark ground drops out, so the route stands directly on the field. */
@@ -100,7 +107,7 @@ h2 { font-size: var(--step-head); }
 
 /* The five camera views */
 .views-body { padding-block: var(--gap); }
-.views { background: #f5f5ef; }
+.views { background: var(--paper); }
 .views-head { display: grid; gap: 24px; }
 .plate { margin-top: clamp(40px, 5vw, 72px); }
 .plates { display: grid; gap: 40px; margin-top: 40px; }
@@ -109,7 +116,7 @@ h2 { font-size: var(--step-head); }
 /* The close */
 
 /* Footer */
-.site-footer { background: var(--ink); color: var(--paper); padding-block: clamp(24px, 4vw, 56px) 28px; }
+.site-footer { background: var(--navy); color: #ffffff; padding-block: clamp(24px, 4vw, 56px) 28px; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 4px clamp(20px, 3vw, 40px); margin-top: clamp(24px, 3vw, 40px); }
 .footer-links a { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--step-lead); font-weight: 600; letter-spacing: -.015em; text-decoration: none; }
 .footer-links a:hover, .footer-links a[aria-current="page"] { text-decoration: underline; }
@@ -117,7 +124,7 @@ h2 { font-size: var(--step-head); }
 
 /* Support and privacy */
 .doc-head { padding-top: 32px; padding-bottom: clamp(40px, 6vw, 88px); background: var(--paper); }
-.doc-head h1 { font-size: clamp(3.5rem, 8vw, 7rem); line-height: 1; letter-spacing: -.055em; }
+.doc-head h1 { font-size: clamp(3.5rem, 8vw, 7rem); line-height: 1; letter-spacing: -.045em; }
 .doc-head .lede { max-width: 34em; margin-top: clamp(24px, 3vw, 40px); }
 .doc-head .small { margin-top: 12px; }
 .doc-head .muted { color: var(--ink); }
@@ -194,6 +201,12 @@ h2 { font-size: var(--step-head); }
 @keyframes settle { from { transform: scale(1.07); } }
 @keyframes drift-in { from { transform: scale(1.1); } to { transform: scale(1); } }
 
-.footer-name { font-size: 24px; font-weight: 750; margin: 0 0 24px; }
+.footer-name { font-size: 24px; font-weight: 700; margin: 0 0 24px; }
+
+/* BEI endorsement. The lockup slot takes approved Marketing Portal artwork only (reverse/white version on navy). */
+.endorse { margin-top: clamp(32px, 4vw, 56px); max-width: 40em; }
+.endorse img { display: block; height: 56px; width: auto; margin-bottom: 16px; }
+.endorse p { font-size: var(--step-body); }
+.endorse strong { font-weight: 600; }
 
 .site-footer .credits { color: var(--on-dark); }

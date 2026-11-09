@@ -38,7 +38,7 @@ function random(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
 function noiseTexture(color:number[],size=128){const c=document.createElement('canvas');c.width=c.height=size;const ctx=c.getContext('2d')!,data=ctx.createImageData(size,size);for(let i=0;i<data.data.length;i+=4){const n=(random()-.5)*24;for(let k=0;k<3;k++)data.data[i+k]=color[k]+n;data.data[i+3]=255;}ctx.putImageData(data,0,0);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(3,3);return t;}
 
 
-function labelTexture(text:string){const c=document.createElement('canvas');c.width=512;c.height=80;const ctx=c.getContext('2d')!;ctx.fillStyle='#14242ddd';ctx.beginPath();ctx.roundRect(0,0,512,80,14);ctx.fill();ctx.font='600 42px system-ui';ctx.textAlign='center';ctx.fillStyle='#f3f2e7';ctx.fillText(text,256,55);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;return t;}
+function labelTexture(text:string){const c=document.createElement('canvas');c.width=512;c.height=80;const ctx=c.getContext('2d')!;ctx.fillStyle='#003360dd';ctx.beginPath();ctx.roundRect(0,0,512,80,14);ctx.fill();ctx.font='600 42px Montserrat, Arial, sans-serif';ctx.textAlign='center';ctx.fillStyle='#f3f2e7';ctx.fillText(text,256,55);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;return t;}
 
 export async function createWorld(host:HTMLDivElement,onTick:(s:Snapshot)=>void,onError:(s:string)=>void,options:{tracking?:boolean;embedded?:boolean}={}){
  const startupAt=performance.now();let worldFirstRenderMs:number|null=null;
@@ -56,7 +56,7 @@ export async function createWorld(host:HTMLDivElement,onTick:(s:Snapshot)=>void,
  const extent=bounds.extent||bounds;
  const mobile=()=>host.clientWidth<650;
  const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,mobile()?1:1.4));renderer.setSize(host.clientWidth,host.clientHeight);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;host.appendChild(renderer.domElement);
- const scene=new T.Scene(),daylight=createDaylightBackdrop(),overviewBackground=new T.Color('#152631');scene.background=daylight;const atmosphere=new T.Fog('#d9e1db',3500,8500);scene.fog=atmosphere;
+ const scene=new T.Scene(),daylight=createDaylightBackdrop(),overviewBackground=new T.Color('#003360');scene.background=daylight;const atmosphere=new T.Fog('#d9e1db',3500,8500);scene.fog=atmosphere;
  const camera=new T.PerspectiveCamera(42,host.clientWidth/host.clientHeight,1,12000);
  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.1;controls.maxPolarAngle=Math.PI*.485;controls.minDistance=12;controls.maxDistance=9000;controls.enablePan=true;controls.screenSpacePanning=false;controls.mouseButtons={LEFT:T.MOUSE.PAN,MIDDLE:T.MOUSE.DOLLY,RIGHT:T.MOUSE.ROTATE};controls.touches={ONE:T.TOUCH.PAN,TWO:T.TOUCH.DOLLY_ROTATE};
  const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment(),environment=pmrem.fromScene(room,.04);scene.environment=environment.texture;scene.environmentIntensity=.5;pmrem.dispose();room.dispose();
@@ -171,7 +171,7 @@ export async function createWorld(host:HTMLDivElement,onTick:(s:Snapshot)=>void,
  }
  const roadStats=buildRoads(scene,paths,surfaceHeight,{minX:min.x,minZ:min.y,stepX:(max.x-min.x)/nx,stepZ:(max.y-min.y)/nz,columns:nx,rows:nz});
  const streetDetails=buildStreetDetails(scene,paths,surfaceHeight);
- const routeObjects=paths.map((path,i)=>{const geometry=new LineGeometry().setPositions(path.points.flatMap(p=>[p.x,groundHeight(dem,p.x,p.y)+.3,p.y]));const line=new Line2(geometry,new LineMaterial({color:i===0?'#68e7cf':'#efc76d',linewidth:2.5,transparent:true,opacity:.9,depthWrite:false,depthTest:false}));line.renderOrder=2;scene.add(line);return line;});
+ const routeObjects=paths.map((path,i)=>{const geometry=new LineGeometry().setPositions(path.points.flatMap(p=>[p.x,groundHeight(dem,p.x,p.y)+.3,p.y]));const line=new Line2(geometry,new LineMaterial({color:i===0?'#8cd2f4':'#ffcc33',linewidth:2.5,transparent:true,opacity:.9,depthWrite:false,depthTest:false}));line.renderOrder=2;scene.add(line);return line;});
  mark('roads');
  const buses=[0,1,2].map(i=>{const root=busGLTF.scene.clone(true);root.traverse(o=>{if(o instanceof T.Mesh){o.castShadow=true;o.receiveShadow=true;}});root.userData.busIndex=i;scene.add(root);return root;});
  mark('bus');
@@ -246,7 +246,7 @@ export async function createWorld(host:HTMLDivElement,onTick:(s:Snapshot)=>void,
   const shadowTarget=(mode==='bus'||mode==='follow')?buses[selected].position:controls.target;sun.target.position.copy(shadowTarget);sun.position.copy(shadowTarget).add(new T.Vector3(-420,470,240));
   const nextShadowRange=mode==='bus'?45:mode==='follow'?90:['architecture','quad'].includes(mode)?65:mode==='facilities'?150:270;if(nextShadowRange!==shadowRange){shadowRange=nextShadowRange;sun.shadow.camera.left=-shadowRange;sun.shadow.camera.right=shadowRange;sun.shadow.camera.top=shadowRange;sun.shadow.camera.bottom=-shadowRange;sun.shadow.camera.updateProjectionMatrix();sun.shadow.normalBias=mode==='bus'?.025:nextShadowRange<=90?.04:.15;}
   const mapBackground=mode==='overview'||mode==='map',nextBackground=mapBackground?overviewBackground:daylight;
-  if(scene.background!==nextBackground){scene.background=nextBackground;atmosphere.color.set(mapBackground?'#152631':'#d9e1db');atmosphere.near=mapBackground?5500:3500;atmosphere.far=mapBackground?11000:8500;dirty=true;}
+  if(scene.background!==nextBackground){scene.background=nextBackground;atmosphere.color.set(mapBackground?'#003360':'#d9e1db');atmosphere.near=mapBackground?5500:3500;atmosphere.far=mapBackground?11000:8500;dirty=true;}
   const drawInterval=1000/30,sinceDraw=now-lastDraw;
   if(dirty&&sinceDraw>=drawInterval){renderer.render(scene,camera);if(worldFirstRenderMs===null)worldFirstRenderMs=Math.round(performance.now()-startupAt);dirty=false;lastDraw=now-(sinceDraw%drawInterval);frames++;totalFrames++;}
   if(now-fpsAt>1000){const sample=frames*1000/(now-fpsAt);fps=Math.round(sample);if(measuredMode!==mode){fpsHistory.length=0;measuredMode=mode;}if(!paused&&totalFrames>90){fpsHistory.push(sample);if(fpsHistory.length>30)fpsHistory.shift();}frames=0;fpsAt=now;}
