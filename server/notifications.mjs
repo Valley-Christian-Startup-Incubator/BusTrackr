@@ -182,8 +182,23 @@ export function notificationDelivery(env=process.env, fetchImpl=fetch) {
   };
 }
 
-export function notificationRoutes(service,{allowedOrigins=[],now=Date.now}={}) {
+export function requestLimiter({max,now=Date.now}) {
   const requests=new Map();
+  return req=>{
+    const remote=req.socket.remoteAddress || 'unknown';
+    const forwarded=req.headers['cf-connecting-ip'];
+    const ip=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote) && typeof forwarded==='string' && isIP(forwarded)?forwarded:remote;
+    const time=now();
+    for(const [key,value] of requests)if(value.reset<=time)requests.delete(key);
+    const limit=requests.get(ip) || {count:0,reset:time+60_000};
+    if(requests.size>=2000 && !requests.has(ip) || ++limit.count>max)return false;
+    requests.set(ip,limit);
+    return true;
+  };
+}
+
+export function notificationRoutes(service,{allowedOrigins=[],now=Date.now}={}) {
+  const allow=requestLimiter({max:20,now});
   return async(req,res)=>{
     if(!req.url.startsWith('/api/notifications/'))return false;
     const respond=(status,body)=>{res.writeHead(status);res.end(JSON.stringify(body));return true;};
@@ -195,14 +210,7 @@ export function notificationRoutes(service,{allowedOrigins=[],now=Date.now}={}) 
     }
     if(req.method==='GET' && req.url==='/api/notifications/config')return respond(200,service.publicConfig());
     if(!['POST','DELETE'].includes(req.method) || req.url!=='/api/notifications/subscriptions')return respond(404,{error:'Not found'});
-    const remote=req.socket.remoteAddress || 'unknown';
-    const forwarded=req.headers['cf-connecting-ip'];
-    const ip=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote) && typeof forwarded==='string' && isIP(forwarded)?forwarded:remote;
-    const time=now();
-    for(const [key,value] of requests)if(value.reset<=time)requests.delete(key);
-    const limit=requests.get(ip) || {count:0,reset:time+60_000};
-    if(requests.size>=2000 && !requests.has(ip) || ++limit.count>20)return respond(429,{error:'Try again later'});
-    requests.set(ip,limit);
+    if(!allow(req))return respond(429,{error:'Try again later'});
     if(!req.headers['content-type']?.startsWith('application/json'))return respond(415,{error:'Use application/json'});
     let input;
     try {input=JSON.parse(await boundedText(req,8000));}
