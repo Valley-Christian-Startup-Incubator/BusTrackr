@@ -44,14 +44,14 @@
         <h3>Camera sightings</h3>
         <p>A camera at one checkpoint emails an alert when a bus enters its zone. BusTrackr shows the time the camera recorded, in Pacific time, and never shows email delivery time as camera time. A sighting doesn't identify the vehicle or its direction, and doesn't prove the bus has left.</p>
         <h3>Arrival estimates and the amber marker</h3>
-        <p>When the server has a usable prediction, the app shows a range in minutes and an amber marker on the route. Ranges are labelled heuristic, not calibrated. There is no published timetable. The server learns when the bus passes the camera from past sightings, and responses older than 45 seconds remove the estimate. A position on the route also needs the trip length, which isn't set yet, so today the app shows the next expected pass instead.</p>
+        <p>When the server has a usable prediction, the app shows a range in minutes and an amber marker on the route. Ranges are labelled heuristic, not calibrated. There is no published timetable. The server learns when the bus passes the camera from past sightings, and responses older than 45 seconds remove the estimate. A position on the route also needs the trip length, which BusTrackr learns when riders tap "At Fehren" or "At campus" as the bus arrives. Until reports on three days agree, the app shows the next expected pass instead.</p>
         <h3>The 3D scene</h3>
         <p>USGS elevation data and OpenStreetMap footprints become a 3D campus and route. There's no GPS tracking and no location permission. The native app bundles the scene, so its map makes no network requests.</p>
       </section>
 
       <section>
         <h2>Why is there no arrival time?</h2>
-        <p>BusTrackr learns the bus pattern from camera sightings instead of a typed-in timetable. A pass is predicted once the camera has seen it on at least two days, recent days count more than old ones, and one-off sightings are ignored. Until then the app shows "Still learning". Arrival times at Fehren also need the trip length, which isn't set yet, so the app predicts when the bus passes the camera.</p>
+        <p>BusTrackr learns the bus pattern from camera sightings instead of a typed-in timetable. A pass is predicted once the camera has seen it on at least two days, recent days count more than old ones, and one-off sightings are ignored. Until then the app shows "Still learning". Arrival times also need the trip length. Tap "At Fehren" or "At campus" when the bus arrives and BusTrackr learns it.</p>
       </section>
 
       <section>
