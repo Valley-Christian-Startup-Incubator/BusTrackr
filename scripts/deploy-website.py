@@ -196,12 +196,17 @@ class Deployer:
             pages.append('BusTrackr/index.html')
         if (root / 'about.html').exists():
             pages.append('about.html')
+        if (root / 'app.html').exists():
+            pages.append('app.html')
         for name in pages:
             html = (root / name).read_text()
             for target in re.findall(r'(?:src|href)=[\'"]([^\'"?#]+)', html):
                 if re.match(r'^[a-z]+:', target) or target.startswith('//'):
                     continue
                 path = root / target.lstrip('/') if target.startswith('/') else (root / name).parent / target
+                # The frontend serves extensionless routes such as /app from app.html.
+                if not path.exists() and not path.suffix and not target.endswith('/'):
+                    path = path.with_name(path.name + '.html')
                 if not path.exists() or not path.resolve().is_relative_to(root.resolve()):
                     raise RuntimeError('Missing local website asset: ' + target)
             html = re.sub(r'<meta name="bustrackr-release"[^>]*>\s*', '', html)
@@ -249,9 +254,10 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
     def probe_map(self, base, root, commit):
         prefix = '/' if (root / 'manifest.webmanifest').exists() else '/BusTrackr/'
         map_root = root if prefix == '/' else root / 'BusTrackr'
-        if not (map_root / 'index.html').exists():
+        page = 'app' if (map_root / 'app.html').exists() else ''
+        if not (map_root / (page + '.html' if page else 'index.html')).exists():
             return
-        with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + prefix + '?release_probe=' + uuid.uuid4().hex, headers=HEALTH_HEADERS), timeout=10) as response:
+        with urllib.request.urlopen(urllib.request.Request(base.rstrip('/') + prefix + page + '?release_probe=' + uuid.uuid4().hex, headers=HEALTH_HEADERS), timeout=10) as response:
             if f'content="{commit}"'.encode() not in response.read():
                 raise RuntimeError('Map page has not selected the candidate release')
         checks = []

@@ -315,6 +315,28 @@ if sys.argv[1:] == ['run', 'build']:
         self.assertIn('legacy map', self.request('/BusTrackr/'))
         self.assertEqual(self.request('/assets/index-ijklmnop.js'), 'root script')
 
+    def test_landing_page_links_to_the_extensionless_tracker_route(self):
+        self.adopt()
+        release = self.base / 'app-release'
+        shutil.copytree(self.source / 'website', release / 'website')
+        index = release / 'website/index.html'
+        index.write_text(index.read_text().replace('</body>', '<a href="/app">Open the map</a></body>'))
+        dist = release / 'dist'
+        (dist / 'assets').mkdir(parents=True)
+        (dist / 'app.html').write_text('<html><head></head><body><div id="root"></div><script src="/assets/app-ijklmnop.js"></script></body></html>')
+        (dist / 'assets/app-ijklmnop.js').write_text('tracker script')
+        (dist / 'manifest.webmanifest').write_text('{"name":"BusTrackr"}')
+        self.deployer.stage_map(release)
+        self.deployer.validate(release, 'f' * 40)
+        self.assertIn('content="' + 'f' * 40 + '"', (release / 'website/app.html').read_text())
+        with self.deployer.locked():
+            self.deployer.artifact(release / 'website')
+        self.assertIn('Open the map', self.request())
+        self.assertIn('id="root"', self.request('/app'))
+        (index).write_text(index.read_text().replace('href="/app"', 'href="/missing"'))
+        with self.assertRaisesRegex(RuntimeError, 'Missing local website asset: /missing'):
+            self.deployer.validate(release, 'f' * 40)
+
     def test_interrupted_adoption_before_exchange_keeps_live_directory(self):
         after = {'commit': 'unpromoted', 'path': str(self.base / 'candidate')}
         shutil.copytree(self.root / 'website', after['path'])
