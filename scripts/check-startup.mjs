@@ -11,6 +11,9 @@ const context=await browser.newContext({viewport:process.env.MOBILE==='1'?{width
 // The app opens in Simple mode; the 3D scene only loads in Map mode.
 const mapMode=()=>localStorage.setItem('bustrackr.view.v1','map');
 await context.addInitScript(mapMode);
+// The tracker sends signed-out visitors to the waitlist; these checks are about the scene.
+const signedIn=route=>route.fulfill({json:{email:'check@example.com'}});
+await context.route('**/api/session',signedIn);
 const page=await context.newPage(),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 // Scene files arrive with Vite's content hash in the name; record them by their source name.
@@ -53,14 +56,14 @@ try {
  assert.deepEqual(errors,[]);
  await context.close();
  // A missing asset must show the existing retry UI instead of staying on the spinner.
- const failure=await browser.newPage();await failure.addInitScript(mapMode);
+ const failure=await browser.newPage();await failure.addInitScript(mapMode);await failure.route('**/api/session',signedIn);
  await failure.route('**/assets/grass-detail-albedo-*.webp',route=>route.fulfill({status:503,body:'Unavailable'}));
  await failure.goto(url);
  await failure.getByText('Local scene could not load',{exact:true}).waitFor();
  assert.match(await failure.locator('.loading.error').innerText(),/grass-detail-albedo.webp.*HTTP 503/);
  await failure.getByRole('button',{name:'Reconnect'}).waitFor();
  await failure.close();
- const stalled=await browser.newPage();await stalled.addInitScript(mapMode);
+ const stalled=await browser.newPage();await stalled.addInitScript(mapMode);await stalled.route('**/api/session',signedIn);
  await stalled.route('**/assets/valley-bus-*.glb',()=>{});
  await stalled.goto(url,{waitUntil:'domcontentloaded'});
  await stalled.getByText('Local scene could not load',{exact:true}).waitFor({timeout:25000});

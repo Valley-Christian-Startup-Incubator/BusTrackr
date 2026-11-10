@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · BusTrackr</title>
+  <meta name="description" content="Pilot members sign in to the BusTrackr map with a link sent to their email.">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:wght@400;500&family=Montserrat:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.b3c5fe676597a06d.css">
+  <script defer src="analytics.62e6dc13b09dde00.js"></script>
+</head>
+<body>
+  <a data-analytics="skip_main" class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a data-analytics="home" class="brand" href="index.html">BusTrackr</a>
+      <nav class="site-nav" aria-label="Main">
+        <a data-analytics="nav_support" href="support.html">Support</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="doc-head">
+      <div class="wrap">
+        <h1>Sign in</h1>
+        <p class="lede">The map is open to pilot members for now. Enter the email you were invited with and we'll send you a sign-in link.</p>
+        <form class="pilot-form signin-form" id="signin">
+          <label for="signin-email">Email</label>
+          <div class="pilot-row">
+            <input id="signin-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required>
+            <button data-analytics="signin_send" class="button" type="submit">Email me a link</button>
+          </div>
+          <p class="pilot-status" id="signin-status" role="status"></p>
+          <p class="pilot-note">Not in the pilot yet? <a data-analytics="signin_waitlist" href="/#waitlist">Join the waitlist</a></p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p class="monument" aria-hidden="true"><span>BusTrackr</span></p>
+      <nav class="footer-links" aria-label="Footer">
+        <a data-analytics="footer_home" href="index.html">Home</a>
+        <a data-analytics="footer_privacy" href="privacy.html">Privacy</a>
+        <a data-analytics="footer_support" href="support.html">Support</a>
+        <a data-analytics="footer_github" href="https://github.com/Valley-Christian-Startup-Incubator/BusTrackr">GitHub</a>
+      </nav>
+      <div class="endorse">
+        <p>A student project of <strong>BEI | Business, Entrepreneurship, &amp; Innovation</strong> at Valley Christian Schools.</p>
+      </div>
+      <p class="credits">© <a data-analytics="credits_osm" href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · USGS terrain · Modeled scenery</p>
+    </div>
+  </footer>
+  <script src="site.3e837ac6a9c78e81.js"></script>
+  <script>
+    (() => {
+      const form = document.getElementById('signin');
+      const status = document.getElementById('signin-status');
+      const button = form.querySelector('button');
+      if (new URLSearchParams(location.search).get('error') === 'expired') status.textContent = 'That sign-in link has expired or was already used. Enter your email to get a new one.';
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = 'Sending…';
+        try {
+          const response = await fetch('/api/session/link', {
+            method: 'POST', headers: {'Content-Type': 'application/json', accept: 'application/json'},
+            body: JSON.stringify({email: form.email.value}), signal: AbortSignal.timeout(20000),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(body.error || "We couldn't send a link right now. Try again in a minute.");
+          status.textContent = 'Check your inbox. The link works once and expires in 15 minutes.';
+          window.BusTrackrAnalytics?.track('signin_link_sent');
+        } catch (error) {
+          status.textContent = error.name === 'TimeoutError' || error instanceof TypeError ? "We couldn't reach the server. Check your connection and try again." : error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

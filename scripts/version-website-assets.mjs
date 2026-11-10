@@ -29,7 +29,8 @@ for (const name of ['style.css','site.js','analytics.js']) {
   replacements.push({name,versioned});
 }
 const pages = ['index.html','support.html','privacy.html'];
-if ((await readdir(root)).includes('about.html')) pages.push('about.html');
+const present = await readdir(root);
+for (const name of ['about.html','signin.html']) if (present.includes(name)) pages.push(name);
 for (const name of pages) {
   const path = new URL(name,root), html = await readFile(path,'utf8');
   if (name === 'index.html' && html.includes('<div id="root">')) continue;

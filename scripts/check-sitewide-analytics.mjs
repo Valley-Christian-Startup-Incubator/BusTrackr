@@ -150,7 +150,7 @@ try {
   assert.equal(new URL(sanitized.url).searchParams.get('utm_source').length,120);assert.equal(sanitized.referrer,'https://referrer.example/path');assert(!JSON.stringify(sanitized).includes('private'));assert(!JSON.stringify(sanitized).includes('hidden'));
   console.log('Dynamic map and exact event checks passed.');
   const coverage=await setup();await coverage.page.goto(origin+'/about.html');
-  const files=['website/index.html','website/support.html','website/privacy.html','src/main.tsx','src/MapApp.tsx','src/CameraPanel.tsx','src/WebNotifications.tsx'];
+  const files=['website/index.html','website/support.html','website/privacy.html','website/signin.html','src/main.tsx','src/MapApp.tsx','src/CameraPanel.tsx','src/WebNotifications.tsx'];
   const ids=new Set(['shuttle_1','shuttle_2','shuttle_3']);
   for(const file of files) for(const match of (await readFile(new URL(file,root),'utf8')).matchAll(/data-analytics="([^"]+)"/g)) ids.add(match[1]);
   await coverage.page.addScriptTag({content:await readFile(new URL('public/analytics.js',root),'utf8')});
