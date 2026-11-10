@@ -1,7 +1,8 @@
 import {lazy, Suspense, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {earlierDaySighting, observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
-import {useCameraFeed, type CameraFeed} from './useCameraFeed';
+import {feedEndpoint, useCameraFeed, type CameraFeed} from './useCameraFeed';
+import {signedOut} from './pilotGate';
 import {WebNotifications} from './WebNotifications';
 import {useFeedbackReport} from './useFeedbackReport';
 import './simple.css';
@@ -81,5 +82,8 @@ function App() {
   </div>;
 }
 const root = createRoot(document.getElementById('root')!);
-root.render(<App/>);
+void signedOut(feedEndpoint.replace(/\/api\/shuttle$/, '/api/session')).then(out => {
+  if (out) location.replace(`/${location.search}#waitlist`);
+  else root.render(<App/>);
+});
 if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());

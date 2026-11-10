@@ -125,6 +125,7 @@ h2 { font-size: var(--step-head); }
 .pilot-row .button:disabled { opacity: .6; cursor: progress; transform: none; }
 .pilot-status { min-height: 1.5em; margin-top: 16px; font-weight: 600; }
 .pilot-note { margin-top: 8px; font-size: var(--step-small); }
+.signin-form { margin-top: clamp(32px, 4vw, 48px); }
 /* The honeypot: off-screen for people, still filled in by form bots. */
 .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 

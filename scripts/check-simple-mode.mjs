@@ -7,6 +7,7 @@ const now = Date.parse('2026-11-02T23:30:00Z');
 const browser = await chromium.launch();
 const context = await browser.newContext({viewport: {width: 390, height: 844}});
 const page = await context.newPage();
+await context.route('**/api/session', route => route.fulfill({json: {email: 'check@example.com'}}));
 await page.clock.install({time: now});
 await page.clock.pauseAt(now);
 let minutes = 0;
@@ -91,6 +92,7 @@ try {
 const notificationBrowser = await chromium.launch();
 const notificationContext = await notificationBrowser.newContext();
 const notificationPage = await notificationContext.newPage();
+await notificationContext.route('**/api/session', route => route.fulfill({json: {email: 'check@example.com'}}));
 const registrations = [];
 let rejectRegistration = true;
 await notificationPage.addInitScript(() => {

@@ -5,6 +5,7 @@ const browser=await chromium.launch({channel: 'chromium'});
 try {
   const context=await browser.newContext();
   await context.grantPermissions(['notifications'],{origin:new URL(url).origin});
+  await context.route('**/api/session',route=>route.fulfill({json:{email:'check@example.com'}}));
   const page=await context.newPage();
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.evaluate(async()=>{
