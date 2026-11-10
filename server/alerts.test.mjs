@@ -64,7 +64,7 @@ test('sample email reaches actual HTTP API and persists across restart', async()
   async function stop() { if (child && child.exitCode === null) { const done = new Promise(resolve=>child.once('exit', resolve)); child.kill('SIGTERM'); await done; } }
   try {
     const first = await start();
-    assert.equal(first.status, 'sample'); assert.equal(first.eventCount,1); assert.equal(first.prediction.status,'estimated'); assert.ok(first.prediction.marker.progress>0);
+    assert.equal(first.status, 'sample'); assert.equal(first.eventCount,4); assert.equal(first.prediction.status,'estimated'); assert.equal(first.prediction.model,'learned-runs-v1'); assert.ok(first.prediction.marker.progress>0);
     const tracking=await (await fetch(`http://127.0.0.1:${port}/api/shuttle`)).json(); assert.equal(tracking.prediction.anchor,'camera');
     assert.equal(first.status, 'sample'); assert.equal(first.latest.checkpoint, 'BEI campus corner');
     assert.equal((await fetch(`http://127.0.0.1:${port}/missing`)).status, 404);

@@ -1,0 +1,13 @@
+import {openHistory} from './history.mjs';
+import {backtest, estimate, learn} from './estimator.mjs';
+const statePath=process.env.ALERT_STATE_FILE || '.data/alerts.json';
+const {state}=openHistory(statePath.replace(/\.json$/, '')+'.sqlite',{legacyPath:statePath});
+const checkpoint=process.env.CAMERA_CHECKPOINT || 'BEI campus corner';
+const now=process.env.MODEL_NOW ? new Date(process.env.MODEL_NOW) : new Date();
+const clock=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(Math.floor(minute%60)).padStart(2,'0')}`;
+const model=learn(state.events,{checkpoint,now});
+console.log(`${model.sightings} sightings, ${model.runs.length} learned runs, ${model.noise} treated as noise`);
+for(const run of model.runs)console.log(`  ${clock(run.minute)} ±${run.spreadMinutes.toFixed(1)} min, seen on ${run.days} days, Sun..Sat likelihood ${run.likelihood.map(l=>l.toFixed(2)).join(' ')}`);
+console.log('backtest', JSON.stringify(backtest(state.events,{checkpoint,now})));
+const {status,nextCrossingAt,window,likelihood,reason}=estimate(state.events,{checkpoint,now});
+console.log('prediction', JSON.stringify({status,nextCrossingAt,window,likelihood,reason}));

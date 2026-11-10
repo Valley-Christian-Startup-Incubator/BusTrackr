@@ -7,7 +7,7 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createFeedbackLog, feedbackRoutes} from './feedback.mjs';
 
-const prediction = {model:'schedule-median-v1',scheduleVersion:'2026-fall',status:'estimated',runId:'am-1',estimatedArrivalAt:'2026-11-09T15:10:00.000Z'};
+const prediction = {model:'learned-runs-v1',status:'estimated',runId:'am-1',estimatedArrivalAt:'2026-11-09T15:10:00.000Z'};
 async function serve(t, log) {
   const routes = feedbackRoutes(log,{allowedOrigins:['https://bustrackr.valleychristianai.com']});
   const server = createServer(async(req,res)=>{if(!await routes(req,res)){res.writeHead(404);res.end();}});

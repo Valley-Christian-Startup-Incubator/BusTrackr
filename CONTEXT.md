@@ -8,8 +8,8 @@ Camera observations and estimates for the Fehren–Skyway shuttle.
 
 **Arrival**: A physical bus visit to the checkpoint, potentially producing several camera events.
 
-**Scheduled run**: One planned journey on a service date, with a direction, checkpoint crossing time, and route duration.
+**Learned run**: A recurring checkpoint pass found in sighting history, with a time of day, spread and per-weekday likelihood. Seen on at least two days.
 
-**Estimate**: A prediction anchored to a schedule or camera event, distinct from an observed position.
+**Estimate**: A prediction anchored to a learned run or camera event, distinct from an observed position.
 
-**Service date**: The local calendar date in America/Los_Angeles on which a scheduled run operates.
+**Service date**: The local calendar date in America/Los_Angeles on which a learned run is expected.

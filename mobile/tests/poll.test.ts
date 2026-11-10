@@ -72,7 +72,7 @@ test('mobile schema accepts the actual sample worker API without mailbox credent
   }
   const feed = feedSchema.parse(payload);
   assert.equal(feed.status, 'sample');
-  assert.equal(feed.eventCount, 1);
+  assert.equal(feed.eventCount, 4);
   assert(feed.latest?.eventAt);
   assert.equal(feed.prediction.status, 'estimated');
 });

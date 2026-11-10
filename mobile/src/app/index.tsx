@@ -18,10 +18,10 @@ const messages = {
   loading: {title: 'Checking the feed', body: 'Looking for the latest camera observation.'},
   unavailable: {title: 'Feed unavailable', body: 'Arrival and position estimates are hidden until the status service responds.'},
   stale: {title: 'Waiting for fresh data', body: 'The last update is too old to use, so estimates are hidden.'},
-  unconfigured: {title: 'No confirmed timetable', body: 'Estimates stay off until an operator confirms the timetable and checkpoint direction.'},
+  unconfigured: {title: 'Still learning', body: 'A pass is predicted once the camera has seen it on two days.'},
   ambiguous: {title: 'No clear run match', body: 'More than one run could match, so no arrival or vehicle position is shown.'},
   unknown: {title: 'No active run confirmed', body: 'A missing estimate does not mean the shuttle has arrived or been cancelled.'},
-  scheduled: {title: 'Waiting for the next run', body: 'This is a timetable time, not an observed arrival.'},
+  scheduled: {title: 'Next pass expected', body: 'Learned from past camera sightings. It is a prediction, not an observed arrival.'},
 };
 function ageLabel(minutes: number) {
   return minutes < 0 ? 'Camera clock is ahead' : relativeObservationTime(minutes).label;
@@ -127,8 +127,8 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
             <View style={s.destinationBlock}><Text style={s.destination}>To {view.prediction.direction === 'inbound' ? 'campus' : 'Fehren'}</Text><Text style={s.caption}>Approximate range</Text></View>
           </View>
           <View style={s.facts}>
-            <Fact label="Based on" value={view.prediction.anchor === 'camera' ? 'Camera sighting and timetable' : 'Timetable and recent delays'}/>
-            <Fact label="Accuracy" value={`Heuristic, not calibrated · ${view.prediction.historyCount} historical ${view.prediction.historyCount === 1 ? 'run' : 'runs'}`}/>
+            <Fact label="Based on" value={view.prediction.anchor === 'camera' ? 'Camera sighting and learned pattern' : 'Pattern learned from past sightings'}/>
+            <Fact label="Accuracy" value={`Heuristic, not calibrated · seen on ${view.prediction.historyCount} ${view.prediction.historyCount === 1 ? 'day' : 'days'}`}/>
             <Fact label="Calculated" value={pacificTime(view.prediction.generatedAt)}/>
           </View>
         </> : <>
@@ -137,7 +137,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
             <Text accessibilityRole="header" style={s.stateTitle}>{messages[view.kind].title}</Text>
           </View>
           <Text style={s.body}>{messages[view.kind].body}</Text>
-          {view.kind === 'scheduled' && view.nextCrossingAt && <View style={s.facts}><Fact label="Scheduled" value={`Checkpoint crossing ${pacificTime(view.nextCrossingAt)}`}/></View>}
+          {view.kind === 'scheduled' && view.nextCrossingAt && <View style={s.facts}><Fact label="Expected" value={`Checkpoint pass around ${pacificTime(view.nextCrossingAt)}`}/></View>}
           {(view.kind === 'unavailable' || view.kind === 'stale') && <View style={s.startAligned}><Button label="Try again" onPress={refresh} secondary/></View>}
         </>}
       </View>
@@ -181,7 +181,7 @@ function ShuttleScreen({source, changeSource, settingsError}: {source: Source; c
             <View style={s.rule}/>
             <Text style={s.eyebrow}>About the data</Text>
             <Text style={s.body}>Camera sightings are observations at one checkpoint. Arrival ranges and the amber 3D route marker are model estimates, not GPS.</Text>
-            <Text style={s.body}>An unconfirmed timetable, ambiguous run, stale update or unavailable feed hides all estimates. No camera sighting proves a subsequent departure.</Text>
+            <Text style={s.body}>Too little history, an ambiguous run, a stale update or an unavailable feed hides all estimates. No camera sighting proves a subsequent departure.</Text>
             <Text style={s.caption}>Your feed, display preference and notification subscription are stored on this device. No location permission is needed.</Text>
           </ScrollView>
         </KeyboardAvoidingView>

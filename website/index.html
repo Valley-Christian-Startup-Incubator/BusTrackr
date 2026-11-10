@@ -176,8 +176,8 @@
       };
       const estimates = {
         estimated: 'Available',
-        scheduled: 'None yet: waiting for the next scheduled run',
-        unconfigured: 'Off: no confirmed timetable',
+        scheduled: 'Next pass expected, learned from past sightings',
+        unconfigured: 'Learning: not enough sightings yet',
         ambiguous: 'None: more than one run could match',
         unknown: 'None: no active run confirmed',
         offline: 'Off: feed unavailable',
@@ -228,7 +228,7 @@
             show({
               ...observation,
               feed: current ? `Connected, checked ${clock(checked)}` : connected ? 'Out of date' : 'Unavailable',
-              estimate: current ? estimates[feed.prediction?.status] ?? 'Unavailable' : 'Off: feed not current',
+              estimate: !current ? 'Off: feed not current' : feed.prediction?.status === 'scheduled' && feed.prediction.nextCrossingAt ? `Next pass around ${when(Date.parse(feed.prediction.nextCrossingAt))}, learned from past sightings` : estimates[feed.prediction?.status] ?? 'Unavailable',
             });
           }
           lastReached = Date.now();

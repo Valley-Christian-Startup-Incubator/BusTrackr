@@ -5,7 +5,7 @@ export const scenarioSchema = z.enum(['estimated', 'inbound', 'unconfigured', 'a
 export type Scenario = z.infer<typeof scenarioSchema>;
 export const scenarios: {id: Scenario; label: string}[] = [
   {id: 'estimated', label: 'To Fehren'}, {id: 'inbound', label: 'To campus'},
-  {id: 'unconfigured', label: 'No timetable'}, {id: 'ambiguous', label: 'Ambiguous'},
+  {id: 'unconfigured', label: 'Learning'}, {id: 'ambiguous', label: 'Ambiguous'},
   {id: 'stale', label: 'Stale feed'}, {id: 'offline', label: 'Unavailable'},
   {id: 'loading', label: 'Loading'}, {id: 'empty', label: 'No observations'},
   {id: 'scheduled', label: 'Scheduled'},

@@ -20,7 +20,8 @@
     "build:mobile-scene": "node scripts/build-mobile-scene.mjs",
     "check:mobile-scene": "node scripts/build-mobile-scene.mjs --check && node scripts/check-mobile-scene.mjs",
     "website:prepare": "node scripts/version-website-assets.mjs",
-    "website:check": "node scripts/version-website-assets.mjs --check"
+    "website:check": "node scripts/version-website-assets.mjs --check",
+    "model:report": "node server/model-report.mjs"
   },
   "dependencies": {
     "@turf/buffer": "^7.4.0",
