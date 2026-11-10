@@ -4,7 +4,9 @@ import contextlib
 import fcntl
 import hashlib
 import importlib.util
+import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,12 +14,33 @@ import tempfile
 import threading
 import time
 import unittest
+import urllib.error
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
-spec = importlib.util.spec_from_file_location('deploy_website', HERE / 'deploy-website.py')
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+
+
+def load(path):
+    spec = importlib.util.spec_from_file_location(path.stem.replace('-', '_'), path)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
+
+
+module = load(HERE / 'deploy-website.py')
+CONTROLLER = (HERE / 'deploy-website.py').read_text()
+AVIF_CONTROLLER = CONTROLLER.replace("'.txt', '.md'}", "'.txt', '.md', '.avif'}")
+FRONTEND = '''import {createServer} from 'node:http';
+import {pathToFileURL} from 'node:url';
+const {createFrontend}=await import(pathToFileURL(process.argv[2]));
+const worker=createServer((req,res)=>{
+ if(req.url==='/api/health'){res.end('{"status":"connected"}');return;}
+ if(req.url==='/api/slow'){res.write('before-');setTimeout(()=>res.end('after'),600);return;}
+ res.statusCode=404;res.end();
+});worker.listen(0,'127.0.0.1',()=>{
+ const server=createFrontend({root:process.argv[3],upstreamPort:worker.address().port});
+ server.listen(Number(process.argv[4]),'127.0.0.1',()=>console.log(server.address().port));
+});'''
 
 
 class WebsiteDeploymentTests(unittest.TestCase):
@@ -40,29 +63,30 @@ class WebsiteDeploymentTests(unittest.TestCase):
         self.root.mkdir()
         shutil.copytree(self.source / 'website', self.root / 'website')
         (self.root / 'server').mkdir()
-        shutil.copy2(HERE.parent / 'server/website.mjs', self.root / 'server/website.mjs')
         shutil.copy2(HERE.parent / 'server/frontend.mjs', self.root / 'server/frontend.mjs')
-        server = '''import {createServer} from 'node:http';
-import {pathToFileURL} from 'node:url';
-const {createFrontend}=await import(pathToFileURL(process.argv[2]));
-const worker=createServer((req,res)=>{
- if(req.url==='/api/health'){res.end('{"status":"connected"}');return;}
- if(req.url==='/api/slow'){res.write('before-');setTimeout(()=>res.end('after'),600);return;}
- res.statusCode=404;res.end();
-});worker.listen(0,'127.0.0.1',()=>{
- const server=createFrontend({root:process.argv[3],upstreamPort:worker.address().port});
- server.listen(0,'127.0.0.1',()=>console.log(server.address().port));
-});'''
-        self.worker = subprocess.Popen(['node', '--input-type=module', '-e', server, 'bustrackr-fixture', str(self.root / 'server/frontend.mjs'), str(self.root / 'website')], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self.url = 'http://127.0.0.1:' + self.worker.stdout.readline().strip()
-        self.deployer = module.Deployer(self.root, repository=str(self.source), public_urls=(self.url,))
+        self.port = self.start_frontend('0')
+        self.url = 'http://127.0.0.1:' + self.port
+        self.restarts = 0
+        self.deployer = module.Deployer(self.root, repository=str(self.source), public_urls=(self.url,), restart=self.restart_frontend)
 
     def tearDown(self):
+        self.stop_frontend()
+        self.temporary.cleanup()
+
+    def start_frontend(self, port):
+        self.worker = subprocess.Popen(['node', '--input-type=module', '-e', FRONTEND, 'bustrackr-fixture', str(self.root / 'server/frontend.mjs'), str(self.root / 'website'), port], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return self.worker.stdout.readline().strip()
+
+    def stop_frontend(self):
         self.worker.terminate()
         self.worker.wait(timeout=5)
         self.worker.stdout.close()
         self.worker.stderr.close()
-        self.temporary.cleanup()
+
+    def restart_frontend(self):
+        self.stop_frontend()
+        self.start_frontend(self.port)
+        self.restarts += 1
 
     def git(self, *args):
         return module.run('git', *args, cwd=self.source)
@@ -82,8 +106,14 @@ const worker=createServer((req,res)=>{
         module.run('node', str(self.source / 'scripts/version-website-assets.mjs'))
 
     def request(self, path='/'):
-        with urllib.request.urlopen(self.url + path, timeout=5) as response:
-            return response.read().decode()
+        try:
+            with urllib.request.urlopen(self.url + path, timeout=5) as response:
+                return response.read().decode()
+        except urllib.error.HTTPError as error:
+            # Python 3.9, the deploy host's interpreter, does not follow 308 redirects.
+            if error.code != 308:
+                raise
+            return self.request(error.headers['Location'])
 
     def adopt(self):
         with self.deployer.locked() as acquired:
@@ -94,6 +124,34 @@ const worker=createServer((req,res)=>{
         with self.deployer.locked() as acquired:
             self.assertTrue(acquired)
             return self.deployer.deploy()
+
+    def handler(self, old='', new=''):
+        source = (HERE.parent / 'server/frontend.mjs').read_text()
+        self.assertIn(old, source)
+        return source.replace(old, new)
+
+    def commit_release(self, handler=None, controller=None):
+        (self.source / 'scripts/test-deploy-website.py').write_text('from pathlib import Path\nwith Path(%r).open("a") as handle:\n    handle.write("ran\\n")\nraise SystemExit(Path(%r).exists())\n' % (str(self.base / 'self-tests'), str(self.base / 'self-tests-fail')))
+        if controller is not None:
+            (self.source / 'scripts/deploy-website.py').write_text(controller)
+        if handler is not None:
+            (self.source / 'server').mkdir(exist_ok=True)
+            (self.source / 'server/frontend.mjs').write_text(handler)
+        self.write_site('second')
+        return self.commit()
+
+    def commit_avif_release(self, handler=None):
+        self.assertNotEqual(AVIF_CONTROLLER, CONTROLLER)
+        (self.source / 'website/photo.avif').write_bytes(b'avif')
+        return self.commit_release(handler, AVIF_CONTROLLER)
+
+    def installed_controller(self):
+        installed = load(self.deployer.home / 'controller.py')
+        return installed.Deployer(self.root, repository=str(self.source), public_urls=(self.url,), restart=self.restart_frontend)
+
+    def self_test_runs(self):
+        runs = self.base / 'self-tests'
+        return len(runs.read_text().splitlines()) if runs.exists() else 0
 
     def test_live_requests_and_old_assets_survive_deploy_and_rollback(self):
         pid = self.worker.pid
@@ -136,6 +194,106 @@ const worker=createServer((req,res)=>{
             stopping.set()
             thread.join()
         self.assertEqual(failures, [])
+
+    def test_release_installs_its_controller_then_deploys_with_it(self):
+        self.deployer.handler.write_text(self.handler("path+='.html';", 'return false;'))
+        self.stop_frontend()
+        self.start_frontend(self.port)
+        before = self.adopt()
+        installed = self.deployer.handler.read_bytes()
+        (self.source / 'website/app.html').write_text('<html><head></head><body>tracker</body></html>')
+        (self.source / 'website/manifest.webmanifest').write_text('{}')
+        commit = self.commit_avif_release(self.handler())
+        with contextlib.redirect_stdout(io.StringIO()) as log:
+            self.assertIsNone(self.deploy())
+        self.assertIn('Installed the controller from ' + commit, log.getvalue())
+        self.assertEqual((self.deployer.home / 'controller.py').read_text(), AVIF_CONTROLLER)
+        self.assertEqual(self.deployer.state()['active'], before)
+        self.assertEqual(self.deployer.handler.read_bytes(), installed)
+        self.assertEqual((self.self_test_runs(), self.restarts), (1, 0))
+        self.deployer = self.installed_controller()
+        self.assertEqual(self.deploy()['commit'], commit)
+        self.assertEqual(self.deployer.handler.read_text(), self.handler())
+        self.assertFalse(self.deployer.backup.exists())
+        self.assertIn('tracker', self.request('/app'))
+        self.assertEqual((self.self_test_runs(), self.restarts), (1, 1))
+        (self.deployer.home / 'controller.py').write_text('# installed by hand\n')
+        self.assertIsNone(self.deploy())
+        self.assertEqual((self.deployer.home / 'controller.py').read_text(), '# installed by hand\n')
+        self.assertEqual((self.self_test_runs(), self.restarts), (1, 1))
+
+    def test_failed_self_tests_install_nothing_until_retry(self):
+        before = self.adopt()
+        installed = self.deployer.handler.read_bytes()
+        (self.base / 'self-tests-fail').touch()
+        commit = self.commit_avif_release(self.handler("res.end('Not found')", "res.end('Missing')"))
+        with contextlib.redirect_stderr(io.StringIO()) as log, self.assertRaisesRegex(RuntimeError, 'Unexpected public asset: photo.avif'):
+            self.deploy()
+        self.assertIn('Self-update tests failed for ' + commit, log.getvalue())
+        self.assertFalse((self.deployer.home / 'controller.py').exists())
+        self.assertEqual(self.deployer.handler.read_bytes(), installed)
+        self.assertEqual(self.deployer.state()['active'], before)
+        self.assertIsNone(self.deploy())
+        self.assertEqual((self.self_test_runs(), self.restarts), (1, 0))
+        (self.base / 'self-tests-fail').unlink()
+        with contextlib.redirect_stdout(io.StringIO()), self.deployer.locked():
+            self.assertIsNone(self.deployer.deploy(retry=True))
+        self.deployer = self.installed_controller()
+        self.assertEqual(self.deploy()['commit'], commit)
+        self.assertIn('Missing', self.deployer.handler.read_text())
+        self.assertEqual((self.self_test_runs(), self.restarts), (2, 1))
+
+    def test_failed_promotion_restores_the_previous_handler_and_keeps_the_controller(self):
+        before = self.adopt()
+        installed = self.deployer.handler.read_bytes()
+        controller = CONTROLLER + '# from the release\n'
+        commit = self.commit_release(self.handler('{proxy(req,res,upstreamHost,upstreamPort);return;}', '{res.writeHead(502);res.end();return;}'), controller)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertIsNone(self.deploy())
+        self.deployer = self.installed_controller()
+        with self.assertRaisesRegex(urllib.error.HTTPError, '502'):
+            self.deploy()
+        self.assertEqual(self.deployer.handler.read_bytes(), installed)
+        self.assertFalse(self.deployer.backup.exists())
+        self.assertEqual(self.request('/api/health'), '{"status":"connected"}')
+        self.assertEqual(self.deployer.state()['active'], before)
+        self.assertEqual(self.deployer.state()['failed_commit'], commit)
+        self.assertIsNone(self.deploy())
+        self.assertIsNone(self.deploy())
+        self.assertEqual((self.deployer.home / 'controller.py').read_text(), controller)
+        self.assertEqual(self.deployer.handler.read_bytes(), installed)
+        self.assertEqual((self.self_test_runs(), self.restarts), (1, 2))
+
+    def test_release_installs_a_missing_handler(self):
+        self.adopt()
+        self.deployer.handler.unlink()
+        commit = self.commit_release(self.handler())
+        self.assertEqual(self.deploy()['commit'], commit)
+        self.assertEqual(self.deployer.handler.read_text(), self.handler())
+        self.assertFalse(self.deployer.backup.exists())
+        self.assertEqual(self.restarts, 1)
+        self.assertIn('second', self.request())
+
+    def test_interrupted_handler_update_restores_the_previous_handler(self):
+        self.adopt()
+        installed = self.deployer.handler.read_bytes()
+        os.link(self.deployer.handler, self.deployer.backup)
+        module.atomic_write(self.deployer.handler, b'interrupted')
+        with self.deployer.locked():
+            self.assertEqual(self.deployer.handler.read_bytes(), installed)
+        self.assertFalse(self.deployer.backup.exists())
+        self.assertEqual(self.restarts, 1)
+
+    def test_broken_candidate_handler_is_rejected_before_promotion(self):
+        before = self.adopt()
+        installed = self.deployer.handler.read_bytes()
+        self.commit_release(self.handler('if(await staticFile(req,res,root))return;'))
+        with self.assertRaisesRegex(urllib.error.HTTPError, '404'):
+            self.deploy()
+        self.assertEqual(self.deployer.handler.read_bytes(), installed)
+        self.assertEqual(self.deployer.state()['active'], before)
+        self.assertEqual((self.self_test_runs(), self.restarts), (1, 0))
+        self.assertIn('first', self.request())
 
     def test_broken_release_does_not_change_active_and_is_not_retried(self):
         before = self.adopt()

@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 import urllib.request
 import uuid
@@ -24,24 +25,43 @@ ASSET = re.compile(r'^.+\.([a-f0-9]{16})\.(css|js)$')
 VITE_ASSET = re.compile(r'^(?:BusTrackr/)?assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$')
 PAGES = ('index.html', 'privacy.html', 'support.html')
 HEALTH_HEADERS = {'User-Agent': 'Mozilla/5.0 BusTrackr-Deployment-Health/1.0', 'Cache-Control': 'no-cache'}
+COMMIT = re.compile(r'[0-9a-f]{40}')
+HANDLER = 'server/frontend.mjs'
+CONTROLLER = 'scripts/deploy-website.py'
 
 
 def run(*args, cwd=None):
     return subprocess.check_output(args, cwd=cwd, text=True, stderr=subprocess.PIPE).strip()
 
 
-def atomic_json(path, value):
+def atomic_write(path, data):
     temporary = path.with_name(path.name + '.next')
-    with temporary.open('w') as handle:
-        json.dump(value, handle, indent=2)
+    with temporary.open('wb') as handle:
+        handle.write(data)
         handle.flush()
         os.fsync(handle.fileno())
+    if path.exists():
+        shutil.copymode(path, temporary)
     os.replace(temporary, path)
     descriptor = os.open(path.parent, os.O_RDONLY)
     try:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def atomic_json(path, value):
+    atomic_write(path, json.dumps(value, indent=2).encode())
+
+
+def restart_frontend():
+    subprocess.run(['launchctl', 'kickstart', '-k', 'user/%d/com.valley.bustrackr.frontend' % os.getuid()], check=True)
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        time.sleep(1)
+        with contextlib.suppress(OSError):
+            urllib.request.urlopen('http://127.0.0.1:18788/', timeout=5).close()
+            return
 
 
 def exchange(left, right):
@@ -64,7 +84,7 @@ def exchange(left, right):
 
 
 class Deployer:
-    def __init__(self, root, repository=REPOSITORY, public_urls=PUBLIC_URLS, node='node', handler=None):
+    def __init__(self, root, repository=REPOSITORY, public_urls=PUBLIC_URLS, node='node', handler=None, restart=restart_frontend):
         self.root = Path(root).resolve()
         self.home = self.root / 'deploy-website'
         self.releases = self.home / 'releases'
@@ -73,7 +93,10 @@ class Deployer:
         self.repository = repository
         self.public_urls = public_urls
         self.node = node
-        self.handler = Path(handler).resolve() if handler else self.root / 'server' / ('frontend.mjs' if (self.root / 'server/frontend.mjs').exists() else 'website.mjs')
+        self.handler = Path(handler).resolve() if handler else self.root / HANDLER
+        self.backup = self.handler.with_name(self.handler.name + '.previous')
+        self.controller = self.home / 'controller.py'
+        self.restart = restart
         self.releases.mkdir(parents=True, exist_ok=True)
 
     @contextlib.contextmanager
@@ -84,6 +107,7 @@ class Deployer:
             except BlockingIOError:
                 yield False
                 return
+            self.restore_handler()
             self.recover()
             yield True
 
@@ -124,6 +148,11 @@ class Deployer:
         state.pop('pending')
         self.save(state)
 
+    def restore_handler(self):
+        if self.backup.exists():
+            os.replace(self.backup, self.handler)
+            self.restart()
+
     def restore(self, release):
         path = Path(release['path'])
         if release['commit'] == 'legacy' and path != self.live and not path.is_symlink():
@@ -144,7 +173,48 @@ class Deployer:
         baseline = self.state().get('source_tip')
         if baseline:
             run('git', 'merge-base', '--is-ancestor', baseline, commit, cwd=source)
-        return source, commit
+        return commit
+
+    def blob(self, commit, path):
+        if not COMMIT.fullmatch(commit):
+            return None
+        result = subprocess.run(['git', 'cat-file', 'blob', commit + ':' + path], cwd=self.home / 'source.git', stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        return result.stdout if result.returncode == 0 else None
+
+    def export(self, commit, directory):
+        data = subprocess.check_output(['git', 'archive', commit], cwd=self.home / 'source.git')
+        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+            for member in archive.getmembers():
+                if member.issym() or member.islnk() or member.name.startswith('/') or '..' in Path(member.name).parts or not (member.isfile() or member.isdir()):
+                    raise RuntimeError('Unsafe release archive entry')
+            archive.extractall(directory)
+
+    def environment(self):
+        runtime = Path(shutil.which(self.node) or self.node).resolve().parent
+        return dict(os.environ, PATH=str(runtime) + os.pathsep + os.environ.get('PATH', ''))
+
+    def changed(self, commit, path, target):
+        data = self.blob(commit, path)
+        return None if data is None or (target.exists() and target.read_bytes() == data) else data
+
+    def self_tests_pass(self, commit, retry):
+        state = self.state()
+        tested = state.get('self_test', {})
+        if tested.get('commit') == commit and (tested['passed'] or not retry):
+            return tested['passed']
+        # Recorded before the slow tests so an interrupted run is not repeated every tick.
+        state['self_test'] = {'commit': commit, 'passed': False}
+        self.save(state)
+        log_path = self.home / ('self-update-' + commit + '.log')
+        with tempfile.TemporaryDirectory(prefix='bustrackr-self-update-') as directory, log_path.open('w') as log:
+            os.chmod(log_path, 0o600)
+            self.export(commit, directory)
+            tests = subprocess.run([sys.executable, 'scripts/test-deploy-website.py'], cwd=directory, env=self.environment(), stdout=log, stderr=subprocess.STDOUT)
+        state['self_test']['passed'] = tests.returncode == 0
+        self.save(state)
+        if tests.returncode:
+            print('Self-update tests failed for ' + commit + '; see ' + str(log_path), file=sys.stderr)
+        return tests.returncode == 0
 
     def retain_assets(self, candidate):
         registry = self.home / 'assets'
@@ -215,12 +285,17 @@ class Deployer:
         if validator.exists():
             run(self.node, str(validator), '--check')
         self.retain_assets(root)
+        handler = self.handler
+        candidate = self.blob(commit, HANDLER)
+        if candidate is not None:
+            handler = release / 'frontend.mjs'
+            handler.write_bytes(candidate)
         preview = '''import {createServer} from 'node:http';
 import {pathToFileURL} from 'node:url';
 const handler=await import(pathToFileURL(process.argv[2]));
 const server=handler.createFrontend ? handler.createFrontend({root:process.argv[3],upstreamHost:'127.0.0.1',upstreamPort:18787}) : createServer(async(req,res)=>{if(!await handler.serveWebsite(req,res,process.argv[3])){res.statusCode=404;res.end();}});
 server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
-        process = subprocess.Popen([self.node, '--input-type=module', '-e', preview, 'bustrackr-preview', str(self.handler), str(root)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen([self.node, '--input-type=module', '-e', preview, 'bustrackr-preview', str(handler), str(root)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             if not select.select([process.stdout], [], [], 10)[0]:
                 raise RuntimeError('Candidate preview did not start')
@@ -293,6 +368,8 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
         except BaseException:
             self.recover()
             raise
+        # A leftover backup makes the next run restore the old handler, so it goes before this release is recorded.
+        self.backup.unlink(missing_ok=True)
         state['active'], state['previous'] = after, before
         state.pop('pending')
         state.pop('failed_commit', None)
@@ -308,7 +385,7 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             raise RuntimeError('Refusing to adopt an unmanaged website symlink')
         if not self.live.is_dir():
             raise RuntimeError('Live website directory is missing')
-        _, baseline = self.fetch()
+        baseline = self.fetch()
         commit = 'adopted-' + uuid.uuid4().hex
         release = self.releases / commit
         shutil.copytree(self.live, release / 'website')
@@ -320,25 +397,30 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             return
         if not self.live.is_symlink() or not self.state().get('active'):
             raise RuntimeError('Run adopt before enabling deployments')
-        source, commit = self.fetch()
+        commit = self.fetch()
         state = self.state()
         if not retry and (state.get('source_tip') == commit or state.get('failed_commit') == commit):
+            return
+        controller = self.changed(commit, CONTROLLER, self.controller)
+        handler = self.changed(commit, HANDLER, self.handler)
+        if (controller is not None or handler is not None) and not self.self_tests_pass(commit, retry):
+            controller = handler = None
+        if controller is not None:
+            atomic_write(self.controller, controller)
+            state = self.state()
+            state.pop('failed_commit', None)
+            self.save(state)
+            print('Installed the controller from ' + commit + '; the next run deploys with it')
             return
         release = self.releases / (commit + '-' + uuid.uuid4().hex[:8])
         release.mkdir()
         try:
-            data = subprocess.check_output(['git', 'archive', commit], cwd=source)
-            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-                for member in archive.getmembers():
-                    if member.issym() or member.islnk() or member.name.startswith('/') or '..' in Path(member.name).parts or not (member.isfile() or member.isdir()):
-                        raise RuntimeError('Unsafe release archive entry')
-                archive.extractall(release)
+            self.export(commit, release)
             if (release / 'package.json').exists():
                 log_path = self.home / ('build-' + commit + '.log')
                 with log_path.open('w') as log:
                     os.chmod(log_path, 0o600)
-                    runtime = Path(shutil.which(self.node) or self.node).resolve().parent
-                    environment = dict(os.environ, VITE_ALERT_API_URL='/api/shuttle', PATH=str(runtime) + os.pathsep + os.environ.get('PATH', ''))
+                    environment = dict(self.environment(), VITE_ALERT_API_URL='/api/shuttle')
                     subprocess.run(['npm', 'ci', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
                     if (release / 'mobile/package-lock.json').exists():
                         subprocess.run(['npm', 'ci', '--prefix', 'mobile', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
@@ -346,8 +428,15 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
                 self.stage_map(release)
             self.validate(release, commit)
             self.compact(release)
+            # promote() probes the public site through the live handler, so the candidate's goes in first.
+            if handler is not None:
+                if self.handler.exists():
+                    os.link(self.handler, self.backup)
+                atomic_write(self.handler, handler)
+                self.restart()
             return self.promote({'commit': commit, 'path': str(release / 'website')}, commit)
         except BaseException:
+            self.restore_handler()
             self.compact(release)
             state = self.state()
             state['failed_commit'] = commit
@@ -395,7 +484,7 @@ def main():
     parser = argparse.ArgumentParser(description='Publish website releases without restarting the camera worker or tunnel')
     parser.add_argument('--root', type=Path, default=Path.home() / 'apps/bustrackr')
     parser.add_argument('--node', default='node')
-    parser.add_argument('--handler', type=Path, help='Installed static frontend module used for candidate previews')
+    parser.add_argument('--handler', type=Path, help='Installed static frontend module, updated from each release')
     parser.add_argument('command', choices=('adopt', 'deploy', 'status', 'rollback', 'pause', 'resume'))
     parser.add_argument('--retry', action='store_true')
     parser.add_argument('--artifact', type=Path, help='Deploy a separate prebuilt website snapshot, including the root tracker build when present')
