@@ -2,7 +2,7 @@ import {useRef, useState} from 'react';
 import {feedEndpoint} from './useCameraFeed';
 
 const feedbackEndpoint = feedEndpoint.replace(/\/api\/shuttle$/, '/api/feedback');
-export type Verdict = 'arrived' | 'wrong';
+export type Verdict = 'arrived' | 'missing' | 'wrong';
 export type Stop = 'fehren' | 'campus';
 
 export function useFeedbackReport(view: 'simple' | 'map') {

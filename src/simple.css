@@ -160,6 +160,17 @@ button:focus-visible,a:focus-visible {
   font-size:15px;
   font-weight:600
 }
+.simple-report .simple-report-switch {
+  flex-basis:100%;
+  min-height:44px;
+  padding:0;
+  border:0;
+  background:none;
+  font-size:14px;
+  font-weight:400;
+  text-decoration:underline;
+  text-underline-offset:3px
+}
 .simple-report span,
 .simple-report p {
   flex-basis:100%;

@@ -1,6 +1,6 @@
 # Prediction feedback
 
-Riders report from either web view. Simple shows "Actually, the bus is here now" under the last detection time. The map view's camera panel shows "The bus is here" while the feed is current, and "Looks wrong" while an estimate is shown. The point is ground truth: each report says what a person saw next to what the system predicted at that moment.
+Riders report from either web view. Simple shows "The bus is here now: At Fehren / At campus" under the last detection time. The map view's camera panel shows the same stop buttons while the feed is current, and "Looks wrong" while an estimate is shown. In both views, "The bus isn't here" switches the stop buttons to report a rider waiting at a stop with no bus. The point is ground truth: each report says what a person saw next to what the system predicted at that moment.
 
 ## Record
 
@@ -12,8 +12,8 @@ The worker appends one JSON object per line to `FEEDBACK_FILE` (default `<ALERT_
  "prediction":{"model":"learned-runs-v1","status":"scheduled","runId":"run-1512","nextCrossingAt":"…","quality":{…},…}}
 ```
 
-- `verdict` is `arrived` (the rider saw the bus at that time) or `wrong` (the shown estimate looked wrong).
-- `stop` is `fehren`, `campus`, or `null` from older clients. The estimator learns trip length from `arrived` reports with a stop.
+- `verdict` is `arrived` (the rider saw the bus at that time), `missing` (the rider was waiting at `stop` and no bus was there) or `wrong` (the shown estimate looked wrong).
+- `stop` is `fehren`, `campus`, or `null` from older clients. The estimator learns trip length from `arrived` reports with a stop and ignores `missing` ones for now.
 - `view` is `simple` or `map`. Simple riders saw only the time since the last detection, not an estimate.
 - `prediction` is the server's own `/api/shuttle` prediction when the report arrived, not a copy sent by the client. `model` names the estimator and `quality` is its backtest score at that moment.
 - `collector.commit` is the worker's `BUSTRACKR_COMMIT`. It stays `null` until the worker is deployed from git (issue #24). `collector.release` is the web app's `bustrackr-release` meta tag, written by the deploy controller.

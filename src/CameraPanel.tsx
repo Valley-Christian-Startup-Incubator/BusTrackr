@@ -1,4 +1,4 @@
-import {useEffect} from 'react';
+import {useEffect, useState} from 'react';
 import type {CameraFeed} from './useCameraFeed';
 import {useFeedbackReport} from './useFeedbackReport';
 import {observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
@@ -12,12 +12,15 @@ const reasons = {
 };
 function PredictionFeedback({estimated}: {estimated: boolean}) {
   const {state, send} = useFeedbackReport('map');
+  const [absent, setAbsent] = useState(false);
   if (state === 'sent') return <p className="prediction-feedback" role="status">Thanks. Your report is saved with this estimate.</p>;
+  const verdict = absent ? 'missing' : 'arrived';
   return <div className="prediction-feedback" role="group" aria-label="Report on this estimate">
-    <span>{estimated ? 'Is this estimate right? The bus is here:' : 'Seeing the bus? It is here:'}</span>
-    <div><button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived', 'fehren')}>At Fehren</button>
-    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived', 'campus')}>At campus</button>
-    {estimated && <button data-analytics="feedback_wrong" type="button" disabled={state === 'sending'} onClick={() => send('wrong')}>Looks wrong</button>}</div>
+    <span>{absent ? "Waiting and the bus isn't here:" : estimated ? 'Is this estimate right? The bus is here:' : 'Seeing the bus? It is here:'}</span>
+    <div><button data-analytics={`feedback_${verdict}`} type="button" disabled={state === 'sending'} onClick={() => send(verdict, 'fehren')}>At Fehren</button>
+    <button data-analytics={`feedback_${verdict}`} type="button" disabled={state === 'sending'} onClick={() => send(verdict, 'campus')}>At campus</button>
+    {estimated && !absent && <button data-analytics="feedback_wrong" type="button" disabled={state === 'sending'} onClick={() => send('wrong')}>Looks wrong</button>}
+    <button data-analytics="feedback_switch" className="prediction-feedback-switch" type="button" onClick={() => setAbsent(value => !value)}>{absent ? 'The bus is here' : "The bus isn't here"}</button></div>
     {state === 'failed' && <p role="alert">Couldn't send your report. Try again.</p>}
   </div>;
 }

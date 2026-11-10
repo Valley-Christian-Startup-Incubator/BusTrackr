@@ -21,11 +21,14 @@ function ModeControl({mode, onChange}: {mode: Mode; onChange: (mode: Mode) => vo
 }
 function SimpleReport() {
   const {state, send} = useFeedbackReport('simple');
+  const [absent, setAbsent] = useState(false);
   if (state === 'sent') return <p className="simple-report" role="status">Thanks. We saved your report.</p>;
+  const verdict = absent ? 'missing' : 'arrived';
   return <div className="simple-report">
-    <span>The bus is here now:</span>
-    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived', 'fehren')}>At Fehren</button>
-    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived', 'campus')}>At campus</button>
+    <span>{absent ? "I'm waiting and the bus isn't here:" : 'The bus is here now:'}</span>
+    <button data-analytics={`feedback_${verdict}`} type="button" disabled={state === 'sending'} onClick={() => send(verdict, 'fehren')}>At Fehren</button>
+    <button data-analytics={`feedback_${verdict}`} type="button" disabled={state === 'sending'} onClick={() => send(verdict, 'campus')}>At campus</button>
+    <button data-analytics="feedback_switch" className="simple-report-switch" type="button" onClick={() => setAbsent(value => !value)}>{absent ? 'The bus is here' : "The bus isn't here"}</button>
     {state === 'failed' && <p role="alert">Couldn't send your report. Try again.</p>}
   </div>;
 }

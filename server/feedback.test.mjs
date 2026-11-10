@@ -70,7 +70,8 @@ test('reports say where the bus was and feed the model, including after a restar
   const options = {path:join(dir,'feedback.jsonl'),prediction:()=>prediction,now:()=>new Date('2026-11-09T23:20:00Z')};
   const post = await serve(t,await createFeedbackLog(options));
   assert.equal((await post({id:randomUUID(),verdict:'arrived',view:'map',stop:'fehren'})).status,200);
+  assert.equal((await post({id:randomUUID(),verdict:'missing',view:'simple',stop:'campus'})).status,200);
   assert.equal((await post({id:randomUUID(),verdict:'arrived',view:'map',stop:'mars'})).status,400);
-  const expected = [{receivedAt:'2026-11-09T23:20:00.000Z',verdict:'arrived',stop:'fehren'}];
+  const expected = [{receivedAt:'2026-11-09T23:20:00.000Z',verdict:'arrived',stop:'fehren'},{receivedAt:'2026-11-09T23:20:00.000Z',verdict:'missing',stop:'campus'}];
   assert.deepEqual((await createFeedbackLog(options)).reports(),expected);
 });
