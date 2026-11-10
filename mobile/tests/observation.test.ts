@@ -4,10 +4,12 @@ import {earlierDaySighting, observationAge, relativeObservationTime} from '../sr
 
 const now = Date.parse('2026-11-02T23:30:00Z');
 const at = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
-test('observations age independently from timetable and turn red at ten minutes', () => {
+test('observations stay green under ten minutes, then fade from amber to red by twenty', () => {
   assert.deepEqual(observationAge(at(0), now), {kind: 'observed', minutes: 0, color: '#167248'});
-  assert.deepEqual(observationAge(at(5), now), {kind: 'observed', minutes: 5, color: '#946200'});
-  assert.deepEqual(observationAge(at(10), now), {kind: 'observed', minutes: 10, color: '#b3322b'});
+  assert.deepEqual(observationAge(at(9.9), now), {kind: 'observed', minutes: 9, color: '#167248'});
+  assert.deepEqual(observationAge(at(10), now), {kind: 'observed', minutes: 10, color: '#946200'});
+  assert.deepEqual(observationAge(at(20), now), {kind: 'observed', minutes: 20, color: '#b3322b'});
+  assert.deepEqual(observationAge(at(60), now), {kind: 'observed', minutes: 60, color: '#b3322b'});
   assert.deepEqual(observationAge(at(1441), now), {kind: 'observed', minutes: 1441, color: '#b3322b'});
   assert.equal(observationAge(at(9.99), now).kind, 'observed');
 });

@@ -7,12 +7,11 @@ export function observationAge(eventAt: string | null | undefined, now: number):
   if (!Number.isFinite(timestamp)) return {kind: 'missing'};
   if (timestamp > now) return {kind: 'clock-error'};
   const elapsed = (now - timestamp) / 60_000;
-  const stops = [[22, 114, 72], [148, 98, 0], [179, 50, 43]];
-  const progress = Math.min(10, elapsed) / 5;
-  const index = Math.min(1, Math.floor(progress));
-  const ratio = progress - index;
-  const color = '#' + stops[index].map((channel, i) =>
-    Math.round(channel + (stops[index + 1][i] - channel) * ratio).toString(16).padStart(2, '0')).join('');
+  // Green while it reads under 10 minutes, then amber fading to red by 20.
+  const [green, amber, red] = [[22, 114, 72], [148, 98, 0], [179, 50, 43]];
+  const ratio = (Math.min(20, elapsed) - 10) / 10;
+  const color = '#' + (elapsed < 10 ? green : amber.map((channel, i) => channel + (red[i] - channel) * ratio))
+    .map(channel => Math.round(channel).toString(16).padStart(2, '0')).join('');
   return {kind: 'observed', minutes: Math.floor(elapsed), color};
 }
 
