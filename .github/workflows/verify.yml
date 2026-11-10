@@ -5,6 +5,8 @@ on:
   pull_request:
 permissions:
   contents: read
+env:
+  WEBSITE_BUILD: website-${{ github.sha }}.tar.gz
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -25,9 +27,40 @@ jobs:
       - run: npm run test:alerts
       - run: python3 scripts/test-deploy-website.py
       - run: npm run build
+        env:
+          VITE_ALERT_API_URL: /api/shuttle
       - run: node scripts/check-sitewide-analytics.mjs
       - run: node scripts/check-landing-feed.mjs
       - run: npm --prefix mobile run typecheck
       - run: npm --prefix mobile run lint
       - run: npm --prefix mobile test
       - run: npm --prefix mobile run export:native
+      - run: python3 scripts/package-website.py "$WEBSITE_BUILD"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: ${{ env.WEBSITE_BUILD }}
+          if-no-files-found: error
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: website-builds
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: website
+      - run: |
+          gh release view website-builds > /dev/null 2>&1 || gh release create website-builds --prerelease --target "$GITHUB_SHA" --title 'Website builds' --notes 'Built website for each verified main commit. The deploy host downloads website-COMMIT.tar.gz from here. Only the newest builds are kept.'
+      - run: gh release upload website-builds "$WEBSITE_BUILD" --clobber
+      - run: |
+          gh release view website-builds --json assets --jq '.assets | sort_by(.createdAt) | reverse | .[10:] | .[].name' | while read -r name; do
+            gh release delete-asset website-builds "$name" --yes
+          done
