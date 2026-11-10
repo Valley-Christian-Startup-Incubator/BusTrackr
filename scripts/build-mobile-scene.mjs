@@ -1,8 +1,11 @@
-import {build} from 'esbuild';
 import {readFile, writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {resolve, extname} from 'node:path';
 
+const {build} = await import('esbuild').catch(() => {
+  console.error('Root dependencies are missing. Run npm ci at the repository root, then retry.');
+  process.exit(1);
+});
 const root = fileURLToPath(new URL('../', import.meta.url));
 const paths = [
   'data/routes.json', 'local-scene/elevation.json', 'local-scene/footprints.json',
@@ -28,10 +31,5 @@ const script = result.outputFiles[0].text.replaceAll('</script', '<\\/script');
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src data: blob:;"><style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden;background:#d9e1db;touch-action:none}canvas{display:block}</style></head><body><div id="world" aria-label="3D campus and shuttle route"></div><script>${script}</script></body></html>`;
 const output = JSON.stringify({html}) + '\n';
 const target = resolve(root, 'mobile/src/map/scene.generated.json');
-if (process.argv.includes('--check')) {
-  if (await readFile(target, 'utf8') !== output) throw new Error('Packaged scene is stale. Run npm run build:mobile-scene.');
-  console.log('Packaged scene matches source and all 13 local assets.');
-} else {
-  await writeFile(target, output);
-  console.log(`Packaged 3D scene with ${paths.length} local assets (${Math.round(Buffer.byteLength(output) / 1024 / 1024)} MiB).`);
-}
+await writeFile(target, output);
+console.log(`Packaged 3D scene with ${paths.length} local assets (${Math.round(Buffer.byteLength(output) / 1024 / 1024)} MiB).`);

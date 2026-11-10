@@ -33,6 +33,17 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "scene": "node ../scripts/build-mobile-scene.mjs",
+    "prestart": "npm run scene",
+    "preandroid": "npm run scene",
+    "preios": "npm run scene",
+    "preweb": "npm run scene",
+    "pretypecheck": "npm run scene",
+    "prelint": "npm run scene",
+    "preexport:native": "npm run scene",
+    "prebuild:ios": "npm run scene",
+    "prebuild:android": "npm run scene",
+    "eas-build-post-install": "npm ci --prefix .. --include=dev --ignore-scripts && npm run scene",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
