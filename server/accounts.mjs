@@ -1,7 +1,7 @@
 import {DatabaseSync} from 'node:sqlite';
 import {createHash, randomBytes} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
-import {dirname} from 'node:path';
+import {dirname, join} from 'node:path';
 import {z} from 'zod';
 import {boundedText} from './resend.mjs';
 import {renderEmail} from './email.mjs';
@@ -13,9 +13,16 @@ CREATE TABLE IF NOT EXISTS login_tokens (hash TEXT PRIMARY KEY, email TEXT NOT N
 CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, email TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);`;
 const signInMinutes = 15;
 const sessionDays = 90;
-const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
 const hash = token => createHash('sha256').update(token).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
+export const accountsPath = env => join(dirname(env.ALERT_STATE_FILE || '.data/alerts.json'), 'accounts.sqlite');
+export const pilotSiteUrl = env => new URL(env.PILOT_SITE_URL || 'https://bustrackr.valleychristianai.com');
+export function verifyLink(siteUrl, login) {
+  const url = new URL('/api/session/verify', siteUrl);
+  url.searchParams.set('token', login);
+  return url.href;
+}
 
 export function openAccounts(path, {now = () => new Date()} = {}) {
   mkdirSync(dirname(path), {recursive: true});
@@ -27,7 +34,18 @@ export function openAccounts(path, {now = () => new Date()} = {}) {
     try {const result = work(); db.exec('COMMIT'); return result;} catch (error) {db.exec('ROLLBACK'); throw error;}
   }
   return {
-    approve: email => db.prepare('INSERT OR IGNORE INTO members (email, approved_at) VALUES (?, ?)').run(email, now().toISOString()).changes === 1,
+    approve(email) {
+      db.prepare('INSERT OR IGNORE INTO members (email, approved_at) VALUES (?, ?)').run(email, now().toISOString());
+      return db.prepare('SELECT approved_at AS approvedAt, invited_at AS invitedAt FROM members WHERE email = ?').get(email);
+    },
+    markInvited: email => {db.prepare('UPDATE members SET invited_at = ? WHERE email = ?').run(now().toISOString(), email);},
+    members: () => db.prepare(`SELECT email, approved_at AS approvedAt, invited_at AS invitedAt,
+      (SELECT count(*) FROM sessions WHERE sessions.email = members.email AND expires_at > ?) AS sessions FROM members ORDER BY approved_at`).all(now().toISOString()),
+    remove: email => transaction(() => {
+      db.prepare('DELETE FROM sessions WHERE email = ?').run(email);
+      db.prepare('DELETE FROM login_tokens WHERE email = ?').run(email);
+      return db.prepare('DELETE FROM members WHERE email = ?').run(email).changes === 1;
+    }),
     isMember: email => Boolean(db.prepare('SELECT 1 FROM members WHERE email = ?').get(email)),
     issueLoginToken(email, ms = signInMinutes * 60_000) {
       const login = token();
@@ -86,9 +104,7 @@ export function sessionRoutes({accounts, mailer, siteUrl, sample = false, allowe
     catch {return respond(400, {error: 'Enter a valid email address.'});}
     if (!accounts || !mailer) return respond(503, {error: 'Sign-in is unavailable right now.'});
     if (!accounts.isMember(email)) return respond(404, {error: "That email isn't in the pilot yet. Join the waitlist and we'll email you when there's a spot."});
-    const url = new URL('/api/session/verify', siteUrl);
-    url.searchParams.set('token', accounts.issueLoginToken(email));
-    try {await mailer(email, signInEmail(url.href));}
+    try {await mailer(email, signInEmail(verifyLink(siteUrl, accounts.issueLoginToken(email))));}
     catch {return respond(503, {error: "We couldn't send the email right now. Try again in a minute."});}
     return respond(200, {sent: true});
   };

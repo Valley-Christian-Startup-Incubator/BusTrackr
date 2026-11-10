@@ -12,7 +12,7 @@ import {backtest, estimate, serviceDate} from './estimator.mjs';
 import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
 import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
 import {createFeedbackLog, feedbackRoutes} from './feedback.mjs';
-import {openAccounts, sessionRoutes} from './accounts.mjs';
+import {accountsPath, openAccounts, pilotSiteUrl, sessionRoutes} from './accounts.mjs';
 import {createMailer} from './email.mjs';
 
 const sample = process.argv.includes('--sample');
@@ -89,10 +89,10 @@ const waitlist=!sample && process.env.RESEND_API_KEY?.trim() && process.env.WAIT
   ?createWaitlist({apiKey:process.env.RESEND_API_KEY,segmentId:process.env.WAITLIST_SEGMENT_ID,from:process.env.WAITLIST_FROM}):null;
 const handleWaitlist=waitlistRoutes(waitlist,{allowedOrigins});
 let accounts;
-try {if(!sample && !once)accounts=openAccounts(join(dirname(statePath),'accounts.sqlite'));}
+try {if(!sample && !once)accounts=openAccounts(accountsPath(process.env));}
 catch {console.error('Account storage unavailable; pilot sign-in is closed.');}
 const mailer=!sample && process.env.RESEND_API_KEY?.trim() && process.env.WAITLIST_FROM?.trim()?createMailer({apiKey:process.env.RESEND_API_KEY,from:process.env.WAITLIST_FROM}):null;
-const handleSession=sessionRoutes({accounts,mailer,sample,allowedOrigins,siteUrl:new URL(process.env.PILOT_SITE_URL || 'https://bustrackr.valleychristianai.com')});
+const handleSession=sessionRoutes({accounts,mailer,sample,allowedOrigins,siteUrl:pilotSiteUrl(process.env)});
 const dashboard=process.env.SIGHTINGS_UMAMI_URL && process.env.SIGHTINGS_UMAMI_WEBSITE?
   dashboardSync(history,umamiSink({url:process.env.SIGHTINGS_UMAMI_URL,website:process.env.SIGHTINGS_UMAMI_WEBSITE})):null;
 function maintainHistory() {
