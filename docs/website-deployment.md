@@ -31,7 +31,7 @@ python3 ~/apps/bustrackr/deploy-website/controller.py --node ~/apps/bustrackr/ru
 
 The bare source repository must retain the canonical origin. Fetches target only `main`. A non-fast-forward update fails. The controller never resets a dirty checkout because it never uses a working checkout.
 
-Each attempt exports the commit into a separate release directory. It installs the locked root and mobile dependencies required by the shared TypeScript modules, builds the React map, and preserves the product overview as `website/about.html` and stages the map directly into `website/`. The build sets `VITE_ALERT_API_URL=/api/shuttle`. It validates HTML references, content-hashed website assets, map resources, and the actual frontend handler before promotion. Build output is private at `deploy-website/build-COMMIT.log`.
+The host does not build the site. Each attempt downloads the build that CI published for the fetched commit, as described in [Where builds come from](#where-builds-come-from), and unpacks it into a separate release directory. The controller validates HTML references, content-hashed website assets, map resources, and the actual frontend handler before promotion.
 
 The bare source repository `deploy-website/source.git` sets `http.lowSpeedTime 300`. GitHub can stay silent for over 30 seconds while it prepares a pack containing the large generated mobile scene, and a 30-second limit made every fetch fail. The controller uses a descriptive browser-compatible health-check User-Agent because Cloudflare Browser Integrity Check rejects Python's default User-Agent. The controller inserts a release marker in each HTML document. It probes the public homepage and API before promotion, then verifies the selected release marker on the public pages afterward. A failed post-promotion check restores the previous release. The controller records the failed commit and skips it until a newer commit arrives or an operator runs `deploy --retry`.
 
@@ -41,7 +41,22 @@ A prebuilt website can be published with the same validation and rollback checks
 python3 ~/apps/bustrackr/deploy-website/controller.py deploy --artifact /absolute/path/to/built-website
 ```
 
+To publish a CI build by hand, extract `website-COMMIT.tar.gz` and pass the path of its `website` directory to `--artifact`.
+
 A prebuilt directory must include the root tracker build (`index.html`, `manifest.webmanifest`, and its assets) if the live release already hosts the map. Legacy releases with `BusTrackr/index.html` remain supported for rollback. A website-only payload cannot remove the map.
+
+## Where builds come from
+
+The `verify` job in `.github/workflows/verify.yml` builds every commit with `VITE_ALERT_API_URL=/api/shuttle`. Then `scripts/package-website.py` writes `website-COMMIT.tar.gz`. The archive has one top-level `website/` directory. It holds the landing pages, an `about.html` copy of the landing page, and the Vite build of the map.
+
+On a push to `main`, the `publish` job runs after all checks pass. It uploads the archive to the `website-builds` prerelease and keeps the newest 10 builds. The controller downloads the build for the fetched `main` tip from `https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/releases/download/website-builds/website-COMMIT.tar.gz`. The download needs no GitHub token.
+
+- If the build is not there yet, the controller does nothing and tries again on the next run. CI takes several minutes after a push.
+- If the download fails or stops partway, the run fails but the controller does not record the commit as failed.
+- If CI fails for a commit, that commit never gets a build. Nothing deploys until a later commit passes CI.
+- If the archive has a symlink, an absolute path, or a `..` path, the controller rejects it and records the commit as failed.
+
+A controller that still builds on the host installs this controller through self-update on the first run that fetches a `main` tip containing it. That run ends after the install, so the host does not build that commit. The next run downloads its build. If the self-update tests fail, the old controller builds and deploys the tip on the host instead. Install the controller by hand as described in [Bootstrap self-update once](#bootstrap-self-update-once).
 
 ## Update the controller and handler from main
 
@@ -51,7 +66,7 @@ When either file at the tip differs from the installed copy, the controller firs
 
 - If the tests fail, the controller installs neither file. It deploys the tip with the current controller and handler and does not test that commit again. Run `deploy --retry` to test it again.
 - If the tests pass and the controller differs, the controller replaces `deploy-website/controller.py` atomically, keeps its file mode, and ends the run without deploying. The next watcher run deploys the tip with the new controller. Installing a controller also clears the failed commit, so a tip that failed under the old controller gets another attempt.
-- If the tests pass and only the handler differs, the controller builds and validates the release, then installs the handler before promotion, because promotion probes the public site through the live handler. It keeps the old handler as `frontend.mjs.previous` and runs `launchctl kickstart -k user/<uid>/com.valley.bustrackr.frontend`. If promotion fails, the controller restores the old handler and restarts the frontend again. It deletes `frontend.mjs.previous` only when promotion succeeds. If no handler is installed, it installs the new one without a backup.
+- If the tests pass and only the handler differs, the controller downloads and validates the release, then installs the handler before promotion, because promotion probes the public site through the live handler. It keeps the old handler as `frontend.mjs.previous` and runs `launchctl kickstart -k user/<uid>/com.valley.bustrackr.frontend`. If promotion fails, the controller restores the old handler and restarts the frontend again. It deletes `frontend.mjs.previous` only when promotion succeeds. If no handler is installed, it installs the new one without a backup.
 
 If the controller stops during a handler update, the next command restores `frontend.mjs.previous` and restarts the frontend. A rollback changes neither the controller nor the handler. The handler from `main` serves the older release.
 
@@ -97,7 +112,7 @@ Run the isolated checks before you merge a controller or handler change. The hos
 python3 scripts/test-deploy-website.py
 ```
 
-The checks use the actual static handler. They exercise continuous requests during adoption and promotion, an in-flight response, retained assets after promotion and rollback, a broken candidate, a failed public probe, interrupted-switch recovery, deployment locking, pause behavior, source divergence, and self-update. The self-update checks cover a controller that installs and then deploys on the next run, a hand-installed controller that stays, failed tests and `deploy --retry`, a broken candidate handler, a failed promotion that restores the handler, a missing handler, and an interrupted handler update. They do not establish public availability or verify the installed watcher. Verify those on the host after installation.
+The checks use the actual static handler and package each fixture commit with `scripts/package-website.py`. A local server serves the builds behind a 308 redirect. They exercise continuous requests during adoption and promotion, an in-flight response, retained assets after promotion and rollback, a commit whose build is not published yet, an unreachable build server, a download cut off partway, an unsafe build archive, a broken candidate, a failed public probe, interrupted-switch recovery, deployment locking, pause behavior, source divergence, and self-update. The self-update checks cover a controller that installs and then deploys on the next run, a hand-installed controller that stays, failed tests and `deploy --retry`, a broken candidate handler, a failed promotion that restores the handler, a missing handler, and an interrupted handler update. They do not establish public availability or verify the installed watcher. Verify those on the host after installation.
 
 ## Current production layout
 
