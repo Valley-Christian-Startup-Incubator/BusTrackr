@@ -358,13 +358,43 @@ class WebsiteDeploymentTests(unittest.TestCase):
         with socket.socket() as unused:
             unused.bind(('127.0.0.1', 0))
             self.deployer.builds = 'http://127.0.0.1:%d/' % unused.getsockname()[1]
-        with self.assertRaises(urllib.error.URLError):
+        with self.assertRaisesRegex(RuntimeError, 'Could not download the build of ' + commit):
             self.deploy()
         self.assertEqual(self.deployer.state(), state)
         self.assertEqual(sorted(self.deployer.releases.iterdir()), releases)
         self.assertIn('first', self.request())
         self.deployer.builds = builds
         self.publish(commit)
+        self.assertEqual(self.deploy()['commit'], commit)
+        self.assertIn('second', self.request())
+
+    def test_cut_off_download_is_tried_again(self):
+        self.adopt()
+        self.write_site('second')
+        commit = self.commit()
+        archive = (self.builds / ('website-' + commit + '.tar.gz')).read_bytes()
+        class CutOff(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(archive)))
+                self.end_headers()
+                self.wfile.write(archive[:len(archive) // 2])
+
+            def log_message(self, *args):
+                pass
+        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), CutOff)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        builds, self.deployer.builds = self.deployer.builds, 'http://127.0.0.1:%d/' % server.server_port
+        state, releases = self.deployer.state(), sorted(self.deployer.releases.iterdir())
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'Could not download the build of ' + commit):
+                self.deploy()
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertEqual(self.deployer.state(), state)
+        self.assertEqual(sorted(self.deployer.releases.iterdir()), releases)
+        self.deployer.builds = builds
         self.assertEqual(self.deploy()['commit'], commit)
         self.assertIn('second', self.request())
 

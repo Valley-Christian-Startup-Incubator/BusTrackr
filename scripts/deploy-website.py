@@ -4,6 +4,7 @@ import contextlib
 import ctypes
 import fcntl
 import hashlib
+import http.client
 import io
 import json
 import os
@@ -206,12 +207,15 @@ class Deployer:
         release.mkdir()
         try:
             with urllib.request.build_opener(Redirects).open(self.builds + 'website-' + commit + '.tar.gz', timeout=60) as response, (release / 'website.tar.gz').open('wb') as archive:
-                shutil.copyfileobj(response, archive)
+                # Only an unsized read raises IncompleteRead when the server sends less than its Content-Length.
+                archive.write(response.read())
         except BaseException as error:
             shutil.rmtree(release)
             # CI publishes the build minutes after the push, so the next run tries again.
             if isinstance(error, urllib.error.HTTPError) and error.code == 404:
                 return None
+            if isinstance(error, (OSError, http.client.HTTPException)):
+                raise RuntimeError('Could not download the build of ' + commit + ': ' + str(error)) from error
             raise
         return release
 
