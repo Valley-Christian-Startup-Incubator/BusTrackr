@@ -11,7 +11,7 @@ Audit: November 1, 2026. This is a working prototype with a live camera observat
 
 ## Required before a useful public release
 
-1. Confirm the camera checkpoint location, direction and the trip length (`TRIP_*` settings). Next-pass predictions are learned from sightings; a map position and arrival time need the trip length.
+1. Confirm the camera checkpoint location. Next-pass predictions are learned from sightings, and trip length is learned from riders' "the bus is here" reports; a map position needs reports on three days.
 2. Observe several real service runs through both receiving addresses; validate timestamps, forwarding, duplicate handling, and recovery from delivery failures. One genuine alert is insufficient evidence of reliable ongoing tracking.
 3. Test on physical iPhone and Android devices: 3D load time and memory, small screens, larger text, screen readers, background/resume, poor connectivity and battery use. Browser verification does not certify the native WebView.
 4. Register/confirm Apple and Google developer ownership, final bundle IDs and EAS project. Build signed production binaries and distribute an internal/TestFlight beta. No store submission or signed production build has been completed in this chat.

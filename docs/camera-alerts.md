@@ -86,7 +86,7 @@ For the web frontend, copy root `.env.example` to `.env.local`, set `VITE_ALERT_
 
 Simple mode shows elapsed minutes since the last sighting without requiring a timetable. Both clients remember the Simple or Map selection. See [notification setup](notifications.md) for optional browser and native push alerts.
 
-A working feed supplies observations. The next expected pass is learned from them, as described in [the estimation design](arrival-estimation-research.md). A map position also needs the trip settings below.
+A working feed supplies observations. The next expected pass is learned from them, as described in [the estimation design](arrival-estimation-research.md). A map position also needs a trip length, learned from rider reports as described below.
 
 ### Templates, persistence and operations
 
@@ -137,15 +137,9 @@ The receiver acknowledges duplicates and irrelevant mail with HTTP 200. API or p
 
 There is no automatic historical backfill. Replay missed `email.received` events from Resend after the receiver is configured. Existing camera history remains intact; old IMAP cursor data is ignored. Old `IMAP_*` and `GOOGLE_*` environment settings are no longer used and can be removed.
 
-## Trip settings
+## Trip length
 
-Predictions need no timetable. A map position needs the journey around the checkpoint, set together in `.env.server`:
-
-- `TRIP_DURATION_SECONDS`: complete journey duration, 60 to 7200. One checkpoint can't measure this, so it must come from someone who knows the route.
-- `TRIP_DIRECTION`: `inbound` (Fehren → campus) or `outbound` (campus → Fehren).
-- `TRIP_CHECKPOINT_PROGRESS`: fraction of the route already covered at the camera, 0 to 1.
-
-Leave `TRIP_DURATION_SECONDS` unset to predict only checkpoint passes. Restart the worker after changing them. A camera arrival before a variable stop or layover can't establish the departure that follows; leave the trip unset until the anchor is understood.
+Nothing is configured. Riders' "the bus is here" reports say whether they are at Fehren or on campus, and the worker learns how long after a camera sighting the bus reaches each stop (see [the estimation design](arrival-estimation-research.md)). Until reports on three days agree, the app shows the next expected pass instead of a map position.
 
 ## API and history
 

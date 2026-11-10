@@ -27,7 +27,7 @@ test('a rider report is saved with the prediction it judges and the code that ma
   const report = {id:randomUUID(),verdict:'arrived',view:'simple',release:'f15017a8c2d1'};
   assert.equal((await post(report,{Origin:'https://bustrackr.valleychristianai.com'})).status,200);
   assert.equal((await post(report)).status,200,'a retried report is accepted');
-  assert.deepEqual(await records(path),[{id:report.id,receivedAt:'2026-11-09T15:08:00.000Z',verdict:'arrived',view:'simple',
+  assert.deepEqual(await records(path),[{id:report.id,receivedAt:'2026-11-09T15:08:00.000Z',verdict:'arrived',view:'simple',stop:null,
     collector:{commit:'f15017a',release:'f15017a8c2d1'},prediction}],'a retry does not add a second record');
 
   const restarted = await serve(t,await createFeedbackLog(options));
@@ -62,4 +62,15 @@ test('invalid or foreign reports are refused without writing', async t=>{
   assert.equal((await post({id:randomUUID(),verdict:'wrong',view:'map'},{'Content-Type':'text/plain'})).status,415);
   assert.equal((await post({id:randomUUID(),verdict:'wrong',view:'map'},{Origin:'https://evil.example'})).status,403);
   await assert.rejects(readFile(path),{code:'ENOENT'});
+});
+
+test('reports say where the bus was and feed the model, including after a restart', async t=>{
+  const dir = await mkdtemp(join(tmpdir(),'bustrackr-feedback-'));
+  t.after(()=>rm(dir,{recursive:true,force:true}));
+  const options = {path:join(dir,'feedback.jsonl'),prediction:()=>prediction,now:()=>new Date('2026-11-09T23:20:00Z')};
+  const post = await serve(t,await createFeedbackLog(options));
+  assert.equal((await post({id:randomUUID(),verdict:'arrived',view:'map',stop:'fehren'})).status,200);
+  assert.equal((await post({id:randomUUID(),verdict:'arrived',view:'map',stop:'mars'})).status,400);
+  const expected = [{receivedAt:'2026-11-09T23:20:00.000Z',verdict:'arrived',stop:'fehren'}];
+  assert.deepEqual((await createFeedbackLog(options)).reports(),expected);
 });

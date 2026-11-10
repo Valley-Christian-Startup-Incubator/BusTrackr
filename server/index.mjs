@@ -35,9 +35,7 @@ const history = openHistory(historyPath, {legacyPath:statePath, collector:{
   commit:process.env.BUSTRACKR_COMMIT || null, source:collectorSource(fileURLToPath(new URL('.', import.meta.url))), parser:PARSER,
 }});
 const state = history.state;
-const tripSeconds = Number(sample ? 480 : process.env.TRIP_DURATION_SECONDS || 0);
-const trip = tripSeconds ? {durationSeconds:tripSeconds, direction:sample ? 'outbound' : process.env.TRIP_DIRECTION, checkpointProgress:Number(sample ? .05 : process.env.TRIP_CHECKPOINT_PROGRESS || 0)} : null;
-if (trip && (tripSeconds < 60 || tripSeconds > 7200 || !['inbound','outbound'].includes(trip.direction) || !(trip.checkpointProgress >= 0 && trip.checkpointProgress <= 1))) throw new Error('Set TRIP_DURATION_SECONDS (60-7200), TRIP_DIRECTION (inbound or outbound) and TRIP_CHECKPOINT_PROGRESS (0-1) together');
+let sampleReports=[];
 let status = sample ? 'sample' : missing.length ? 'disconnected' : 'connecting';
 let lastCheckedAt = null;
 const port = Number(process.env.ALERT_PORT || 8787);
@@ -58,6 +56,8 @@ if (sample) {
       history.record(await parseAlert(email,config,new Date(seen.getTime()+30_000)),null,config.cooldownSeconds);
     }
   }
+  // Riders reported the bus at Fehren eight minutes after each earlier sample sighting, so the sample learns a trip.
+  sampleReports=state.events.filter(e=>Date.now()-Date.parse(e.eventAt)>86_400_000/2).map(e=>({receivedAt:new Date(Date.parse(e.eventAt)+480_000).toISOString(),verdict:'arrived',stop:'fehren'}));
   lastCheckedAt = new Date().toISOString();
 }
 let quality={key:null,value:null};
@@ -70,7 +70,7 @@ function payload() {
   const checkAge=lastCheckedAt ? Date.now()-Date.parse(lastCheckedAt) : Infinity;
   const feedStatus=sample?'sample':status==='connected' && (checkAge>90_000 || !receiver.healthy)?'disconnected':status;
   const now=new Date();
-  const prediction=estimate(state.events,{checkpoint:config.checkpoint,trip,now,quality:modelQuality(now)});
+  const prediction=estimate(state.events,{checkpoint:config.checkpoint,reports:sample?sampleReports:feedback?.reports() ?? [],now,quality:modelQuality(now)});
   if (!sample && feedStatus!=='connected') {prediction.marker=null;prediction.status='offline';prediction.reason='Inbound email feed is not current; position estimate hidden.';}
   return {status:feedStatus,lastCheckedAt,latest:state.latest,eventCount:state.events.length,prediction};
 }

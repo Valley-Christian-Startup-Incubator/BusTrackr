@@ -9,7 +9,11 @@ export const settings = {
   minLikelihood:.5,       // predict a run on a weekday only when it ran on at least half of those days
   matchMinutes:20,        // a sighting this close to a predicted pass counts as that pass
   horizonDays:7,
+  minTripDays:3,          // a trip length is learned once rider reports on this many days agree
+  maxTripMinutes:90,      // a report counts only if a sighting came at most this long before it
 };
+// The camera watches the campus corner, so a bus bound for Fehren has barely started and one bound for campus has nearly arrived.
+const destinations = {fehren:{direction:'outbound', checkpointProgress:.05}, campus:{direction:'inbound', checkpointProgress:.95}};
 
 const formatter = new Intl.DateTimeFormat('en-CA', {timeZone:zone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'});
 function parts(date) { return Object.fromEntries(formatter.formatToParts(date).map(p=>[p.type,p.value])); }
@@ -28,6 +32,7 @@ function passAt(date, minute) {
   const start = scheduledTime(date, `${String(Math.floor(whole/60)).padStart(2,'0')}:${String(whole%60).padStart(2,'0')}`);
   return start === null ? null : start + (minute-whole)*60_000;
 }
+const median = values => weightedMedian(values.map(value=>({value, weight:1})));
 function weightedMedian(items) {
   const sorted = [...items].sort((a,b)=>a.value-b.value), half = sorted.reduce((sum,item)=>sum+item.weight,0)/2;
   let seen = 0;
@@ -115,11 +120,41 @@ export function backtest(events, {checkpoint, now = new Date()}) {
     meanErrorMinutes:hits ? round(errorMinutes/hits) : null, windowCoverage:hits ? round(covered/hits) : null};
 }
 
+// Learns how long after a camera sighting the bus reaches each stop, from riders' "bus is here" reports.
+// Each day gets one vote (its median), so a rider tapping repeatedly can't outvote the rest, and days far from the others are dropped.
+export function learnTrips(events, reports, {checkpoint, now = new Date()}) {
+  const model = learn(events, {checkpoint, now});
+  const sightings = sightingsAt(events, checkpoint, now).sort((a,b)=>a.at-b.at);
+  const samples = {};
+  for (const report of reports) {
+    const at = Date.parse(report.receivedAt);
+    if (report.verdict !== 'arrived' || !destinations[report.stop] || !(at <= now.getTime())) continue;
+    const date = serviceDate(new Date(at));
+    const before = sightings.filter(s=>s.date===date && s.at<at && at-s.at<=settings.maxTripMinutes*60_000).at(-1);
+    if (!before) continue;
+    const run = model.runs.find(run=>Math.abs(before.minute-run.minute) <= settings.matchMinutes);
+    ((samples[report.stop] ??= {})[date] ??= []).push({seconds:(at-before.at)/1000, run:run?.id ?? null});
+  }
+  const trips = {};
+  for (const [stop, byDate] of Object.entries(samples)) {
+    const daily = Object.values(byDate).map(list=>({seconds:median(list.map(x=>x.seconds)), runs:list.map(x=>x.run).filter(Boolean)}));
+    const center = median(daily.map(d=>d.seconds)), mad = 1.4826*median(daily.map(d=>Math.abs(d.seconds-center)));
+    const kept = daily.filter(d=>Math.abs(d.seconds-center) <= 3*Math.max(mad, 60));
+    if (kept.length < settings.minTripDays) continue;
+    const seconds = median(kept.map(d=>d.seconds));
+    trips[stop] = {stop, ...destinations[stop], durationSeconds:Math.round(seconds), spreadSeconds:Math.round(Math.max(60, 1.4826*median(kept.map(d=>Math.abs(d.seconds-seconds))))),
+      days:kept.length, runs:[...new Set(kept.flatMap(d=>d.runs))]};
+  }
+  return trips;
+}
+
 const iso = at => new Date(at).toISOString();
-export function estimate(events, {checkpoint, trip = null, now = new Date(), quality = null}) {
+export function estimate(events, {checkpoint, reports = [], now = new Date(), quality = null}) {
   const base = {model:MODEL, generatedAt:now.toISOString(), timeZone:zone, quality};
   const model = learn(events, {checkpoint, now});
-  const learned = {runs:model.runs.length, sightings:model.sightings, noise:model.noise};
+  const trips = learnTrips(events, reports, {checkpoint, now});
+  const learned = {runs:model.runs.length, sightings:model.sightings, noise:model.noise,
+    trips:Object.values(trips).map(({stop, durationSeconds, days})=>({stop, durationSeconds, days}))};
   if (!model.runs.length) return {...base, status:'unconfigured', marker:null, learned,
     reason:`Learning the bus pattern: a pass has to be seen on at least ${settings.minDays} days before it is predicted.`};
   const time = now.getTime(), today = serviceDate(now);
@@ -128,26 +163,20 @@ export function estimate(events, {checkpoint, trip = null, now = new Date(), qua
   for (let offset = 0; offset <= settings.horizonDays; offset++) upcoming.push(...passes(model, addDays(today, offset)));
   const todays = upcoming.filter(p=>p.date===today).map(p=>({...p, observed:seenToday.filter(s=>Math.abs(s.at-p.at)<=settings.matchMinutes*60_000)}));
 
-  if (trip) {
-    const span = p => {
-      const crossing = p.observed?.length === 1 ? p.observed[0].at : p.at;
-      const start = crossing - trip.checkpointProgress*trip.durationSeconds*1000;
-      return {...p, crossing, start, end:start + trip.durationSeconds*1000};
-    };
-    const active = todays.map(span).filter(p=>time>=p.start && time<=p.end);
-    if (active.length > 1 || active.some(p=>p.observed.length > 1)) return {...base, status:'ambiguous', marker:null, learned,
-      reason:'More than one learned run or sighting could match. No vehicle position assigned.'};
-    if (active.length) {
-      const p = active[0], anchored = p.observed.length === 1;
-      const progress = Math.min(1, Math.max(0, (time-p.start)/(p.end-p.start)));
-      const remainingSeconds = Math.max(0, (p.end-time)/1000);
-      const uncertaintySeconds = anchored ? 120 + (time-p.crossing)/1000*.2 : (p.window[1]-p.at)/1000;
-      return {...base, status:'estimated', runId:p.run.id, serviceDate:today, direction:trip.direction, checkpoint,
-        anchor:anchored?'camera':'schedule', eventId:anchored?p.observed[0].id:null, historyCount:p.run.days, likelihood:p.likelihood,
-        estimatedArrivalAt:iso(p.end), remainingSeconds,
-        rangeSeconds:[Math.max(0,remainingSeconds-uncertaintySeconds), remainingSeconds+uncertaintySeconds], rangeKind:'heuristic-not-calibrated',
-        marker:{direction:trip.direction, progress, lower:Math.max(0,progress-uncertaintySeconds/trip.durationSeconds), upper:Math.min(1,progress+uncertaintySeconds/trip.durationSeconds)}, learned};
-    }
+  const active = todays.filter(p=>p.observed.length).flatMap(p=>Object.values(trips).filter(trip=>trip.runs.includes(p.run.id)).map(trip=>({p, trip})))
+    .filter(({p, trip})=>time >= p.observed.at(-1).at && time <= p.observed.at(-1).at + trip.durationSeconds*1000);
+  if (active.length > 1 || active.some(({p})=>p.observed.length > 1)) return {...base, status:'ambiguous', marker:null, learned,
+    reason:'More than one learned run, destination or sighting could match. No vehicle position assigned.'};
+  if (active.length) {
+    const {p, trip} = active[0], sighting = p.observed[0], start = trip.checkpointProgress, span = 1-start;
+    const elapsed = (time-sighting.at)/1000, remainingSeconds = Math.max(0, trip.durationSeconds-elapsed);
+    const progress = Math.min(1, start + span*elapsed/trip.durationSeconds);
+    const uncertaintySeconds = trip.spreadSeconds + elapsed*.2;
+    return {...base, status:'estimated', runId:p.run.id, serviceDate:today, direction:trip.direction, destination:trip.stop, checkpoint,
+      anchor:'camera', eventId:sighting.id, historyCount:trip.days, likelihood:p.likelihood,
+      estimatedArrivalAt:iso(sighting.at + trip.durationSeconds*1000), remainingSeconds,
+      rangeSeconds:[Math.max(0,remainingSeconds-uncertaintySeconds), remainingSeconds+uncertaintySeconds], rangeKind:'heuristic-not-calibrated',
+      marker:{direction:trip.direction, progress, lower:Math.max(start, progress-span*uncertaintySeconds/trip.durationSeconds), upper:Math.min(1, progress+span*uncertaintySeconds/trip.durationSeconds)}, learned};
   }
   const done = new Set(todays.filter(p=>p.observed.length).map(p=>p.at));
   const next = upcoming.filter(p=>p.window[1] >= time && !done.has(p.at)).sort((a,b)=>a.at-b.at)[0];

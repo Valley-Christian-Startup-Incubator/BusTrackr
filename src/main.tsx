@@ -23,7 +23,9 @@ function SimpleReport() {
   const {state, send} = useFeedbackReport('simple');
   if (state === 'sent') return <p className="simple-report" role="status">Thanks. We saved your report.</p>;
   return <div className="simple-report">
-    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived')}>Actually, the bus is here now</button>
+    <span>The bus is here now:</span>
+    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived', 'fehren')}>At Fehren</button>
+    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived', 'campus')}>At campus</button>
     {state === 'failed' && <p role="alert">Couldn't send your report. Try again.</p>}
   </div>;
 }

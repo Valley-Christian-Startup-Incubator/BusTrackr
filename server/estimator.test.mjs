@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {backtest, estimate, learn, scheduledTime} from './estimator.mjs';
+import {backtest, estimate, learn, learnTrips, scheduledTime} from './estimator.mjs';
 import {cameraTimestamp, parseAlert} from './alerts.mjs';
 
 const checkpoint = 'BEI campus corner';
@@ -87,20 +87,45 @@ test('follows a schedule change as recent days outweigh old ones', ()=>{
   assert.ok(minutesBetween(result.nextCrossingAt, pacific('2026-11-02','15:40').toISOString()) < 2, result.nextCrossingAt);
 });
 
-test('a configured trip length turns a sighting into a moving map position', ()=>{
-  const trip = {durationSeconds:600, direction:'outbound', checkpointProgress:0};
+const report = (date, time, stop = 'fehren', verdict = 'arrived') => ({receivedAt:new Date(scheduledTime(date, time.slice(0,5)) + Number(time.slice(6) || 0)*1000).toISOString(), verdict, stop});
+// Riders at Fehren report the bus about 8 minutes after each Monday to Thursday sighting in the first week.
+const fehrenReports = () => [report('2026-10-19','15:18:30'), report('2026-10-20','15:19:40'), report('2026-10-21','15:20:00'), report('2026-10-22','15:21:30')];
+
+test('learns trip length from rider reports, one vote per day, ignoring spam and outliers', ()=>{
+  const now = pacific('2026-11-02','08:00');
+  assert.deepEqual(learnTrips(twoWeeks(), fehrenReports().slice(0,2), {checkpoint, now}), {}, 'two days of reports are not enough');
+  const noisy = [...fehrenReports(),
+    ...Array.from({length:30}, ()=>report('2026-10-27','15:45:00')),
+    report('2026-10-28','16:30:00'),
+    report('2026-10-29','15:19:00', 'fehren', 'wrong'),
+    report('2026-10-25','15:20:00'),
+    report('2026-10-29','15:20:00', 'nowhere'),
+  ];
+  const {fehren, campus} = learnTrips(twoWeeks(), noisy, {checkpoint, now});
+  assert.equal(campus, undefined);
+  assert.equal(fehren.direction, 'outbound');
+  assert.ok(Math.abs(fehren.durationSeconds - 480) <= 30, `${fehren.durationSeconds}s`);
+  assert.equal(fehren.days, 4, 'the spammed day and the 75-minute day are outvoted or dropped');
+});
+
+test('a learned trip turns a sighting into a moving map position', ()=>{
   const today = sighting('2026-11-02','15:11:00');
   const events = [...twoWeeks(), today];
-  const result = estimate(events, {checkpoint, trip, now:pacific('2026-11-02','15:15')});
+  const reports = fehrenReports();
+  const result = estimate(events, {checkpoint, reports, now:pacific('2026-11-02','15:15')});
   assert.equal(result.status, 'estimated');
+  assert.equal(result.destination, 'fehren');
   assert.equal(result.anchor, 'camera');
   assert.equal(result.eventId, today.id);
-  assert.equal(result.marker.progress, .4);
-  const later = estimate(events, {checkpoint, trip, now:pacific('2026-11-02','15:17')});
+  assert.ok(result.marker.progress > .05 && result.marker.progress < 1);
+  assert.ok(result.remainingSeconds > 0 && result.remainingSeconds < 480);
+  const later = estimate(events, {checkpoint, reports, now:pacific('2026-11-02','15:17')});
   assert.ok(later.marker.progress > result.marker.progress);
-  const twice = estimate([...events, sighting('2026-11-02','15:13:00')], {checkpoint, trip, now:pacific('2026-11-02','15:15')});
+  const twice = estimate([...events, sighting('2026-11-02','15:13:00')], {checkpoint, reports, now:pacific('2026-11-02','15:15')});
   assert.equal(twice.status, 'ambiguous');
-  assert.equal(estimate(events, {checkpoint, now:pacific('2026-11-02','15:15')}).marker, null, 'no trip length, no position');
+  assert.equal(estimate(events, {checkpoint, now:pacific('2026-11-02','15:15')}).marker, null, 'no reports, no position');
+  const friday = estimate([...twoWeeks(), sighting('2026-11-06','14:24:00')], {checkpoint, reports, now:pacific('2026-11-06','14:26')});
+  assert.equal(friday.marker, null, 'riders never reported where the Friday run goes');
 });
 
 test('backtest replays each past day using only earlier sightings', ()=>{

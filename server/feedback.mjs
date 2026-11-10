@@ -8,6 +8,7 @@ const submission = z.object({
   id:z.string().uuid(),
   verdict:z.enum(['arrived','wrong']),
   view:z.enum(['simple','map']),
+  stop:z.enum(['fehren','campus']).nullable().default(null),
   release:z.string().regex(/^[0-9a-f]{7,40}$/).nullable().default(null),
 });
 
@@ -16,20 +17,23 @@ export async function createFeedbackLog({path, prediction, commit=null, now=()=>
   try {text = await readFile(path,'utf8');}
   catch(error) {if(error.code!=='ENOENT')throw error;}
   // A crash mid-append leaves a partial last line: skip it, and start the next record on a fresh line.
-  const ids = new Set(text.split('\n').flatMap(line=>{try {return [JSON.parse(line).id];} catch {return [];}}));
+  const entries = text.split('\n').flatMap(line=>{try {return [JSON.parse(line)];} catch {return [];}});
+  const ids = new Set(entries.map(entry=>entry.id));
+  const reports = entries.map(({receivedAt,verdict,stop})=>({receivedAt,verdict,stop:stop ?? null}));
   let separator = text && !text.endsWith('\n') ? '\n' : '';
   let queue = Promise.resolve();
   return {
+    reports:()=>reports,
     record(input) {
       const parsed = submission.safeParse(input);
       if (!parsed.success) return Promise.reject(Object.assign(new Error('Invalid feedback'),{status:400}));
-      const {id,verdict,view,release} = parsed.data;
+      const {id,verdict,view,stop,release} = parsed.data;
       const result = queue.then(async()=>{
         if (ids.has(id)) return {id};
-        const entry = {id,receivedAt:now().toISOString(),verdict,view,collector:{commit,release},prediction:prediction()};
+        const entry = {id,receivedAt:now().toISOString(),verdict,view,stop,collector:{commit,release},prediction:prediction()};
         await mkdir(dirname(path),{recursive:true});
         await appendFile(path,separator+JSON.stringify(entry)+'\n',{mode:0o600});
-        separator = '';ids.add(id);
+        separator = '';ids.add(id);reports.push({receivedAt:entry.receivedAt,verdict,stop});
         return {id};
       });
       queue = result.catch(()=>{});
