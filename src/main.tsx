@@ -1,4 +1,4 @@
-import {lazy, Suspense, useEffect, useState} from 'react';
+import {lazy, Suspense, useEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {earlierDaySighting, observationAge, relativeObservationTime} from '../mobile/src/shuttle/observation';
 import {feedEndpoint, useCameraFeed, type CameraFeed} from './useCameraFeed';
@@ -19,17 +19,25 @@ function ModeControl({mode, onChange}: {mode: Mode; onChange: (mode: Mode) => vo
     <button data-analytics="mode_map" type="button" aria-pressed={mode === 'map'} onClick={() => onChange('map')}>Map</button>
   </div>;
 }
-function SimpleReport() {
+// A false-alarm report only makes sense right after a detection, from someone who was already at the stop.
+const falseAlarmWindowMinutes = 30;
+function SimpleReport({detectedAt}: {detectedAt: string | null}) {
   const {state, send} = useFeedbackReport('simple');
-  const [absent, setAbsent] = useState(false);
+  const confirm = useRef<HTMLDialogElement>(null);
   if (state === 'sent') return <p className="simple-report" role="status">Thanks. We saved your report.</p>;
-  const verdict = absent ? 'missing' : 'arrived';
+  const time = detectedAt && new Date(detectedAt).toLocaleTimeString('en-US', {timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit'});
   return <div className="simple-report">
-    <span>{absent ? "I'm waiting and the bus isn't here:" : 'The bus is here now:'}</span>
-    <button data-analytics={`feedback_${verdict}`} type="button" disabled={state === 'sending'} onClick={() => send(verdict, 'fehren')}>At Fehren</button>
-    <button data-analytics={`feedback_${verdict}`} type="button" disabled={state === 'sending'} onClick={() => send(verdict, 'campus')}>At campus</button>
-    <button data-analytics="feedback_switch" className="simple-report-switch" type="button" onClick={() => setAbsent(value => !value)}>{absent ? 'The bus is here' : "The bus isn't here"}</button>
+    <button data-analytics="feedback_arrived" type="button" disabled={state === 'sending'} onClick={() => send('arrived')}>The bus is here</button>
+    {detectedAt && <button data-analytics="feedback_false_alarm" type="button" disabled={state === 'sending'} onClick={() => confirm.current?.showModal()}>The bus isn't here</button>}
     {state === 'failed' && <p role="alert">Couldn't send your report. Try again.</p>}
+    <dialog ref={confirm} className="simple-confirm" aria-labelledby="false-alarm-title" onClick={event => {if (event.target === event.currentTarget) confirm.current?.close();}}>
+      <form method="dialog">
+        <h2 id="false-alarm-title">Were you already waiting?</h2>
+        <p>Only report this if you were at the stop before {time} and no bus came. If you got there later, the bus may have already left.</p>
+        <button data-analytics="feedback_false_alarm_confirm" type="submit" onClick={() => send('false-alarm')}>I was waiting. No bus came.</button>
+        <button data-analytics="feedback_false_alarm_cancel" type="submit">Cancel</button>
+      </form>
+    </dialog>
   </div>;
 }
 function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; modeControl: React.ReactNode; settingError: string}) {
@@ -59,7 +67,7 @@ function SimpleScreen({camera, modeControl, settingError}: {camera: CameraFeed; 
       {age.kind === 'observed' && <p className="simple-time"><time dateTime={feed!.latest!.eventAt!}>{new Date(feed!.latest!.eventAt!).toLocaleString('en-US', {timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'})}</time></p>}
       {age.kind === 'observed' && <p className="simple-checkpoint">{feed?.latest?.checkpoint}</p>}
       </>}
-      {feed && !error && <SimpleReport/>}
+      {feed && !error && <SimpleReport detectedAt={age.kind === 'observed' && !earlierDay && age.minutes <= falseAlarmWindowMinutes ? feed.latest!.eventAt! : null}/>}
     </section>
     <footer className="simple-footer">
       <div className="simple-feed-status"><p role="status">{status}</p><button data-analytics="feed_refresh" type="button" onClick={refresh} aria-label="Refresh feed">Refresh</button></div>

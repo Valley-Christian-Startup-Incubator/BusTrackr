@@ -6,7 +6,7 @@ import {requestLimiter} from './notifications.mjs';
 
 const submission = z.object({
   id:z.string().uuid(),
-  verdict:z.enum(['arrived','missing','wrong']),
+  verdict:z.enum(['arrived','false-alarm','wrong']),
   view:z.enum(['simple','map']),
   stop:z.enum(['fehren','campus']).nullable().default(null),
   release:z.string().regex(/^[0-9a-f]{7,40}$/).nullable().default(null),
