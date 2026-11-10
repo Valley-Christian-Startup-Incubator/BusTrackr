@@ -182,7 +182,7 @@ export function notificationDelivery(env=process.env, fetchImpl=fetch) {
   };
 }
 
-export function requestLimiter({max,now=Date.now}) {
+export function requestLimiter({max,windowMs=60_000,now=Date.now}) {
   const requests=new Map();
   return req=>{
     const remote=req.socket.remoteAddress || 'unknown';
@@ -190,7 +190,7 @@ export function requestLimiter({max,now=Date.now}) {
     const ip=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote) && typeof forwarded==='string' && isIP(forwarded)?forwarded:remote;
     const time=now();
     for(const [key,value] of requests)if(value.reset<=time)requests.delete(key);
-    const limit=requests.get(ip) || {count:0,reset:time+60_000};
+    const limit=requests.get(ip) || {count:0,reset:time+windowMs};
     if(requests.size>=2000 && !requests.has(ip) || ++limit.count>max)return false;
     requests.set(ip,limit);
     return true;
