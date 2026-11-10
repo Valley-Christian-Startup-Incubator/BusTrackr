@@ -2,14 +2,18 @@
 import concurrent.futures
 import contextlib
 import fcntl
+import functools
 import hashlib
+import http.server
 import importlib.util
 import io
-import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
+import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -43,6 +47,20 @@ const worker=createServer((req,res)=>{
 });'''
 
 
+class Builds(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        # GitHub redirects release downloads, and Python 3.9 follows a 308 only through the controller's handler.
+        if self.path.startswith('/download/'):
+            self.send_response(308)
+            self.send_header('Location', self.path[len('/download'):])
+            self.end_headers()
+            return
+        super().do_GET()
+
+    def log_message(self, *args):
+        pass
+
+
 class WebsiteDeploymentTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='bustrackr-deploy-test-')
@@ -50,6 +68,10 @@ class WebsiteDeploymentTests(unittest.TestCase):
         self.root = self.base / 'app'
         self.source = self.base / 'repository'
         self.source.mkdir()
+        self.builds = self.base / 'builds'
+        self.builds.mkdir()
+        self.build_server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Builds, directory=str(self.builds)))
+        threading.Thread(target=self.build_server.serve_forever, daemon=True).start()
         self.git('init', '-b', 'main')
         self.git('config', 'user.email', 'deployment@example.invalid')
         self.git('config', 'user.name', 'Deployment test')
@@ -58,6 +80,7 @@ class WebsiteDeploymentTests(unittest.TestCase):
         (self.source / 'public').mkdir()
         shutil.copy2(HERE.parent / 'public/analytics.js', self.source / 'public/analytics.js')
         (self.source / 'app.html').write_text('<html><head><script defer src="/analytics.js"></script></head><body></body></html>')
+        (self.source / 'dist').mkdir()
         self.write_site('first')
         self.first = self.commit()
         self.root.mkdir()
@@ -67,10 +90,12 @@ class WebsiteDeploymentTests(unittest.TestCase):
         self.port = self.start_frontend('0')
         self.url = 'http://127.0.0.1:' + self.port
         self.restarts = 0
-        self.deployer = module.Deployer(self.root, repository=str(self.source), public_urls=(self.url,), restart=self.restart_frontend)
+        self.deployer = module.Deployer(self.root, repository=str(self.source), builds='http://127.0.0.1:%d/download/' % self.build_server.server_port, public_urls=(self.url,), restart=self.restart_frontend)
 
     def tearDown(self):
         self.stop_frontend()
+        self.build_server.shutdown()
+        self.build_server.server_close()
         self.temporary.cleanup()
 
     def start_frontend(self, port):
@@ -91,10 +116,16 @@ class WebsiteDeploymentTests(unittest.TestCase):
     def git(self, *args):
         return module.run('git', *args, cwd=self.source)
 
-    def commit(self):
+    def commit(self, publish=True):
         self.git('add', '.')
         self.git('commit', '-m', 'website fixture')
-        return self.git('rev-parse', 'HEAD')
+        commit = self.git('rev-parse', 'HEAD')
+        if publish:
+            self.publish(commit)
+        return commit
+
+    def publish(self, commit):
+        module.run(sys.executable, str(HERE / 'package-website.py'), str(self.builds / ('website-' + commit + '.tar.gz')), cwd=self.source)
 
     def write_site(self, value):
         root = self.source / 'website'
@@ -147,7 +178,7 @@ class WebsiteDeploymentTests(unittest.TestCase):
 
     def installed_controller(self):
         installed = load(self.deployer.home / 'controller.py')
-        return installed.Deployer(self.root, repository=str(self.source), public_urls=(self.url,), restart=self.restart_frontend)
+        return installed.Deployer(self.root, repository=str(self.source), builds=self.deployer.builds, public_urls=(self.url,), restart=self.restart_frontend)
 
     def self_test_runs(self):
         runs = self.base / 'self-tests'
@@ -317,40 +348,74 @@ class WebsiteDeploymentTests(unittest.TestCase):
         self.assertEqual(self.deployer.state()['active'], adopted)
         self.assertIn('first', self.request())
 
-    def test_map_build_installs_locked_mobile_dependencies(self):
+    def test_commit_waits_for_its_published_build(self):
         self.adopt()
-        (self.source / 'package.json').write_text('{}')
-        (self.source / 'mobile').mkdir()
-        (self.source / 'mobile/package-lock.json').write_text('{}')
-        self.commit()
-        binaries = self.base / 'bin'
-        binaries.mkdir()
-        node = binaries / 'node'
-        node.write_text('#!/bin/sh\nexec ' + shutil.which('node') + ' "$@"\n')
-        node.chmod(0o755)
-        installed = self.base / 'npm-calls.jsonl'
-        npm = binaries / 'npm'
-        npm.write_text(r"""#!/usr/bin/env python3
-import json
-from pathlib import Path
-import sys
-with Path(%r).open('a') as handle:
-    handle.write(json.dumps(sys.argv[1:]) + '\n')
-if sys.argv[1:] == ['run', 'build']:
-    calls = [json.loads(line) for line in Path(%r).read_text().splitlines()]
-    if ['ci', '--prefix', 'mobile', '--ignore-scripts'] not in calls:
-        raise SystemExit('Missing expo/tsconfig.base dependency installation')
-    Path('dist').mkdir()
-    Path('dist/index.html').write_text('<html><head></head><body><div id="root">map fixture</div></body></html>')
-    Path('dist/manifest.webmanifest').write_text('{}')
-""" % (str(installed), str(installed)))
-        npm.chmod(0o755)
-        self.deployer.node = str(node)
-        self.deploy()
-        self.assertIn('map fixture', self.request('/BusTrackr/'))
-        self.assertEqual([json.loads(line) for line in installed.read_text().splitlines()], [
-            ['ci', '--ignore-scripts'], ['ci', '--prefix', 'mobile', '--ignore-scripts'], ['run', 'build'],
-        ])
+        self.write_site('second')
+        commit = self.commit(publish=False)
+        state, releases = self.deployer.state(), sorted(self.deployer.releases.iterdir())
+        self.assertIsNone(self.deploy())
+        builds = self.deployer.builds
+        with socket.socket() as unused:
+            unused.bind(('127.0.0.1', 0))
+            self.deployer.builds = 'http://127.0.0.1:%d/' % unused.getsockname()[1]
+        with self.assertRaisesRegex(RuntimeError, 'Could not download the build of ' + commit):
+            self.deploy()
+        self.assertEqual(self.deployer.state(), state)
+        self.assertEqual(sorted(self.deployer.releases.iterdir()), releases)
+        self.assertIn('first', self.request())
+        self.deployer.builds = builds
+        self.publish(commit)
+        self.assertEqual(self.deploy()['commit'], commit)
+        self.assertIn('second', self.request())
+
+    def test_cut_off_download_is_tried_again(self):
+        self.adopt()
+        self.write_site('second')
+        commit = self.commit()
+        archive = (self.builds / ('website-' + commit + '.tar.gz')).read_bytes()
+        class CutOff(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(archive)))
+                self.end_headers()
+                self.wfile.write(archive[:len(archive) // 2])
+
+            def log_message(self, *args):
+                pass
+        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), CutOff)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        builds, self.deployer.builds = self.deployer.builds, 'http://127.0.0.1:%d/' % server.server_port
+        state, releases = self.deployer.state(), sorted(self.deployer.releases.iterdir())
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'Could not download the build of ' + commit):
+                self.deploy()
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertEqual(self.deployer.state(), state)
+        self.assertEqual(sorted(self.deployer.releases.iterdir()), releases)
+        self.deployer.builds = builds
+        self.assertEqual(self.deploy()['commit'], commit)
+        self.assertIn('second', self.request())
+
+    def test_unsafe_build_is_rejected(self):
+        before = self.adopt()
+        link = tarfile.TarInfo('website/escape.js')
+        link.type, link.linkname = tarfile.SYMTYPE, str(self.base / 'outside.js')
+        parent = tarfile.TarInfo('website/../../escape.html')
+        for entry in (link, parent):
+            with self.subTest(entry.name):
+                self.write_site(entry.name)
+                commit = self.commit(publish=False)
+                with tarfile.open(self.builds / ('website-' + commit + '.tar.gz'), 'w:gz') as archive:
+                    archive.add(self.source / 'website', 'website')
+                    archive.addfile(entry, io.BytesIO())
+                with self.assertRaisesRegex(RuntimeError, 'Unsafe release archive entry'):
+                    self.deploy()
+                self.assertEqual(self.deployer.state()['active'], before)
+                self.assertEqual(self.deployer.state()['failed_commit'], commit)
+                self.assertFalse((self.deployer.releases / 'escape.html').exists())
+                self.assertIn('first', self.request())
 
     def test_corrupt_candidate_cannot_block_a_later_release(self):
         self.adopt()
@@ -451,18 +516,13 @@ if sys.argv[1:] == ['run', 'build']:
         (legacy / 'index.html').write_text('<html><head></head><body>legacy map</body></html>')
         (legacy / 'assets/index-abcdefgh.js').write_text('legacy script')
         self.adopt()
-        release = self.base / 'root-release'
-        shutil.copytree(self.source / 'website', release / 'website')
-        dist = release / 'dist'
-        (dist / 'assets').mkdir(parents=True)
+        dist = self.source / 'dist'
+        (dist / 'assets').mkdir()
         (dist / 'index.html').write_text('<html><head></head><body><div id="root"></div><script src="/assets/index-ijklmnop.js"></script></body></html>')
         (dist / 'assets/index-ijklmnop.js').write_text('root script')
         (dist / 'manifest.webmanifest').write_text('{"name":"BusTrackr"}')
-        self.deployer.stage_map(release)
-        self.assertIn('first', (release / 'website/about.html').read_text())
-        self.assertIn('id="root"', (release / 'website/index.html').read_text())
-        with self.deployer.locked():
-            self.deployer.artifact(release / 'website')
+        commit = self.commit()
+        self.assertEqual(self.deploy()['commit'], commit)
         self.assertIn('id="root"', self.request())
         self.assertIn('id="root"', self.request('/BusTrackr/?utm_source=instagram'))
         self.assertIn('first', self.request('/about.html'))
@@ -475,25 +535,21 @@ if sys.argv[1:] == ['run', 'build']:
 
     def test_landing_page_links_to_the_extensionless_tracker_route(self):
         self.adopt()
-        release = self.base / 'app-release'
-        shutil.copytree(self.source / 'website', release / 'website')
-        index = release / 'website/index.html'
+        index = self.source / 'website/index.html'
         index.write_text(index.read_text().replace('</body>', '<a href="/app">Open the map</a></body>'))
-        dist = release / 'dist'
-        (dist / 'assets').mkdir(parents=True)
+        dist = self.source / 'dist'
+        (dist / 'assets').mkdir()
         (dist / 'app.html').write_text('<html><head></head><body><div id="root"></div><script src="/assets/app-ijklmnop.js"></script></body></html>')
         (dist / 'assets/app-ijklmnop.js').write_text('tracker script')
         (dist / 'manifest.webmanifest').write_text('{"name":"BusTrackr"}')
-        self.deployer.stage_map(release)
-        self.deployer.validate(release, 'f' * 40)
-        self.assertIn('content="' + 'f' * 40 + '"', (release / 'website/app.html').read_text())
-        with self.deployer.locked():
-            self.deployer.artifact(release / 'website')
+        commit = self.commit()
+        self.assertEqual(self.deploy()['commit'], commit)
         self.assertIn('Open the map', self.request())
-        self.assertIn('id="root"', self.request('/app'))
-        (index).write_text(index.read_text().replace('href="/app"', 'href="/missing"'))
+        self.assertIn('content="' + commit + '"', self.request('/app'))
+        index.write_text(index.read_text().replace('href="/app"', 'href="/missing"'))
+        self.commit()
         with self.assertRaisesRegex(RuntimeError, 'Missing local website asset: /missing'):
-            self.deployer.validate(release, 'f' * 40)
+            self.deploy()
 
     def test_interrupted_adoption_before_exchange_keeps_live_directory(self):
         after = {'commit': 'unpromoted', 'path': str(self.base / 'candidate')}

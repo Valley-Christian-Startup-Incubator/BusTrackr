@@ -4,6 +4,7 @@ import contextlib
 import ctypes
 import fcntl
 import hashlib
+import http.client
 import io
 import json
 import os
@@ -16,10 +17,12 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import uuid
 
 REPOSITORY = 'https://github.com/Valley-Christian-Startup-Incubator/BusTrackr.git'
+BUILDS = 'https://github.com/Valley-Christian-Startup-Incubator/BusTrackr/releases/download/website-builds/'
 PUBLIC_URLS = ('https://bustrackr.valleychristianai.com', 'https://bustracker.valleychristianai.com')
 ASSET = re.compile(r'^.+\.([a-f0-9]{16})\.(css|js)$')
 VITE_ASSET = re.compile(r'^(?:BusTrackr/)?assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$')
@@ -54,6 +57,20 @@ def atomic_json(path, value):
     atomic_write(path, json.dumps(value, indent=2).encode())
 
 
+class Redirects(urllib.request.HTTPRedirectHandler):
+    # Python 3.9, the deploy host's interpreter, does not follow 308 redirects.
+    def http_error_308(self, request, response, code, message, headers):
+        return self.http_error_302(request, response, 307, message, headers)
+
+
+def unpack(archive, directory):
+    with tarfile.open(fileobj=archive) as tar:
+        for member in tar.getmembers():
+            if member.issym() or member.islnk() or member.name.startswith('/') or '..' in Path(member.name).parts or not (member.isfile() or member.isdir()):
+                raise RuntimeError('Unsafe release archive entry')
+        tar.extractall(directory)
+
+
 def restart_frontend():
     subprocess.run(['launchctl', 'kickstart', '-k', 'user/%d/com.valley.bustrackr.frontend' % os.getuid()], check=True)
     deadline = time.monotonic() + 30
@@ -84,13 +101,14 @@ def exchange(left, right):
 
 
 class Deployer:
-    def __init__(self, root, repository=REPOSITORY, public_urls=PUBLIC_URLS, node='node', handler=None, restart=restart_frontend):
+    def __init__(self, root, repository=REPOSITORY, builds=BUILDS, public_urls=PUBLIC_URLS, node='node', handler=None, restart=restart_frontend):
         self.root = Path(root).resolve()
         self.home = self.root / 'deploy-website'
         self.releases = self.home / 'releases'
         self.live = self.root / 'website'
         self.state_file = self.home / 'state.json'
         self.repository = repository
+        self.builds = builds
         self.public_urls = public_urls
         self.node = node
         self.handler = Path(handler).resolve() if handler else self.root / HANDLER
@@ -182,12 +200,24 @@ class Deployer:
         return result.stdout if result.returncode == 0 else None
 
     def export(self, commit, directory):
-        data = subprocess.check_output(['git', 'archive', commit], cwd=self.home / 'source.git')
-        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-            for member in archive.getmembers():
-                if member.issym() or member.islnk() or member.name.startswith('/') or '..' in Path(member.name).parts or not (member.isfile() or member.isdir()):
-                    raise RuntimeError('Unsafe release archive entry')
-            archive.extractall(directory)
+        unpack(io.BytesIO(subprocess.check_output(['git', 'archive', commit], cwd=self.home / 'source.git')), directory)
+
+    def download(self, commit):
+        release = self.releases / (commit + '-' + uuid.uuid4().hex[:8])
+        release.mkdir()
+        try:
+            with urllib.request.build_opener(Redirects).open(self.builds + 'website-' + commit + '.tar.gz', timeout=60) as response, (release / 'website.tar.gz').open('wb') as archive:
+                # Only an unsized read raises IncompleteRead when the server sends less than its Content-Length.
+                archive.write(response.read())
+        except BaseException as error:
+            shutil.rmtree(release)
+            # CI publishes the build minutes after the push, so the next run tries again.
+            if isinstance(error, urllib.error.HTTPError) and error.code == 404:
+                return None
+            if isinstance(error, (OSError, http.client.HTTPException)):
+                raise RuntimeError('Could not download the build of ' + commit + ': ' + str(error)) from error
+            raise
+        return release
 
     def environment(self):
         runtime = Path(shutil.which(self.node) or self.node).resolve().parent
@@ -281,9 +311,6 @@ class Deployer:
                     raise RuntimeError('Missing local website asset: ' + target)
             html = re.sub(r'<meta name="bustrackr-release"[^>]*>\s*', '', html)
             (root / name).write_text(html.replace('</head>', f'<meta name="bustrackr-release" content="{commit}">\n</head>'))
-        validator = release / 'scripts/version-website-assets.mjs'
-        if validator.exists():
-            run(self.node, str(validator), '--check')
         self.retain_assets(root)
         handler = self.handler
         candidate = self.blob(commit, HANDLER)
@@ -412,20 +439,12 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             self.save(state)
             print('Installed the controller from ' + commit + '; the next run deploys with it')
             return
-        release = self.releases / (commit + '-' + uuid.uuid4().hex[:8])
-        release.mkdir()
+        release = self.download(commit)
+        if release is None:
+            return
         try:
-            self.export(commit, release)
-            if (release / 'package.json').exists():
-                log_path = self.home / ('build-' + commit + '.log')
-                with log_path.open('w') as log:
-                    os.chmod(log_path, 0o600)
-                    environment = dict(self.environment(), VITE_ALERT_API_URL='/api/shuttle')
-                    subprocess.run(['npm', 'ci', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
-                    if (release / 'mobile/package-lock.json').exists():
-                        subprocess.run(['npm', 'ci', '--prefix', 'mobile', '--ignore-scripts'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
-                    subprocess.run(['npm', 'run', 'build'], cwd=release, env=environment, check=True, stdout=log, stderr=subprocess.STDOUT)
-                self.stage_map(release)
+            with (release / 'website.tar.gz').open('rb') as archive:
+                unpack(archive, release)
             self.validate(release, commit)
             self.compact(release)
             # promote() probes the public site through the live handler, so the candidate's goes in first.
@@ -442,11 +461,6 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
             state['failed_commit'] = commit
             self.save(state)
             raise
-
-    def stage_map(self, release):
-        website = release / 'website'
-        shutil.copy2(website / 'index.html', website / 'about.html')
-        shutil.copytree(release / 'dist', website, dirs_exist_ok=True)
 
     def compact(self, release):
         for entry in release.iterdir():
