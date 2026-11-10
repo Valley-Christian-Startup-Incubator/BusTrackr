@@ -1,18 +1,19 @@
 #!/bin/sh
 # Ships the camera worker from a commit to valley-big-mac and restarts it with BUSTRACKR_COMMIT set.
+# Leaves server/frontend.mjs to website deploys, which install it and restart the frontend.
 # Usage: scripts/deploy-worker.sh [ref]   (default origin/main)
 set -eu
 ref=${1:-origin/main}
 host=${BUSTRACKR_HOST:-valley-big-mac}
 commit=$(git rev-parse --verify "$ref^{commit}")
-files=$(git ls-tree --name-only "$commit" server/ | grep -E '\.mjs$' | grep -v '\.test\.mjs$')
+files=$(git ls-tree --name-only "$commit" server/ | grep -E '\.mjs$' | grep -v -e '\.test\.mjs$' -e '^server/frontend\.mjs$')
 echo "Deploying worker $commit to $host"
 git archive --format=tar "$commit" $files | ssh "$host" 'cat > /tmp/bustrackr-worker.tar'
 ssh "$host" "COMMIT=$commit sh -s" <<'REMOTE'
 set -eu
 cd "${BUSTRACKR_ROOT:-$HOME/apps/bustrackr}"
 # Code hot-copied ahead of a merge would silently disappear; make the operator merge it first.
-unknown=$(ls server/*.mjs | grep -v '\.test\.mjs$' | grep -vxF "$(tar -tf /tmp/bustrackr-worker.tar)" || true)
+unknown=$(ls server/*.mjs | grep -v -e '\.test\.mjs$' -e '^server/frontend\.mjs$' | grep -vxF "$(tar -tf /tmp/bustrackr-worker.tar)" || true)
 if [ -n "$unknown" ]; then
   rm /tmp/bustrackr-worker.tar
   echo "Live worker has files missing from $COMMIT: $unknown. Merge that code first; nothing changed." >&2

@@ -27,6 +27,7 @@ PAGES = ('index.html', 'privacy.html', 'support.html')
 HEALTH_HEADERS = {'User-Agent': 'Mozilla/5.0 BusTrackr-Deployment-Health/1.0', 'Cache-Control': 'no-cache'}
 COMMIT = re.compile(r'[0-9a-f]{40}')
 HANDLER = 'server/frontend.mjs'
+CONTROLLER = 'scripts/deploy-website.py'
 
 
 def run(*args, cwd=None):
@@ -94,7 +95,7 @@ class Deployer:
         self.node = node
         self.handler = Path(handler).resolve() if handler else self.root / HANDLER
         self.backup = self.handler.with_name(self.handler.name + '.previous')
-        self.managed = {HANDLER: self.handler, 'scripts/deploy-website.py': self.home / 'controller.py'}
+        self.controller = self.home / 'controller.py'
         self.restart = restart
         self.releases.mkdir(parents=True, exist_ok=True)
 
@@ -192,46 +193,28 @@ class Deployer:
         runtime = Path(shutil.which(self.node) or self.node).resolve().parent
         return dict(os.environ, PATH=str(runtime) + os.pathsep + os.environ.get('PATH', ''))
 
-    def reconcile(self, commit, retry=False):
+    def changed(self, commit, path, target):
+        data = self.blob(commit, path)
+        return None if data is None or (target.exists() and target.read_bytes() == data) else data
+
+    def self_tests_pass(self, commit, retry):
         state = self.state()
-        if not retry and state.get('self_update_failed') == commit:
-            return
-        changed = {}
-        for path, target in self.managed.items():
-            data = self.blob(commit, path)
-            if data is not None and (not target.exists() or target.read_bytes() != data):
-                changed[target] = data
-        if not changed:
-            return
-        names = ', '.join(target.name for target in changed)
-        # Recorded before the slow tests so an interrupted attempt is not retried every tick.
-        state['self_update_failed'] = commit
+        tested = state.get('self_test', {})
+        if tested.get('commit') == commit and (tested['passed'] or not retry):
+            return tested['passed']
+        # Recorded before the slow tests so an interrupted run is not repeated every tick.
+        state['self_test'] = {'commit': commit, 'passed': False}
         self.save(state)
         log_path = self.home / ('self-update-' + commit + '.log')
         with tempfile.TemporaryDirectory(prefix='bustrackr-self-update-') as directory, log_path.open('w') as log:
             os.chmod(log_path, 0o600)
             self.export(commit, directory)
             tests = subprocess.run([sys.executable, 'scripts/test-deploy-website.py'], cwd=directory, env=self.environment(), stdout=log, stderr=subprocess.STDOUT)
+        state['self_test']['passed'] = tests.returncode == 0
+        self.save(state)
         if tests.returncode:
             print('Self-update tests failed for ' + commit + '; see ' + str(log_path), file=sys.stderr)
-            return
-        handler = changed.pop(self.handler, None)
-        if handler is not None:
-            os.link(self.handler, self.backup)
-            try:
-                atomic_write(self.handler, handler)
-                self.restart()
-                self.probe()
-            except BaseException:
-                self.restore_handler()
-                raise
-            self.backup.unlink()
-        for target, data in changed.items():
-            atomic_write(target, data)
-        state = self.state()
-        state.pop('self_update_failed')
-        self.save(state)
-        print('Self-update installed ' + names + ' from ' + commit)
+        return tests.returncode == 0
 
     def retain_assets(self, candidate):
         registry = self.home / 'assets'
@@ -385,6 +368,8 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
         except BaseException:
             self.recover()
             raise
+        # A leftover backup makes the next run restore the old handler, so it goes before this release is recorded.
+        self.backup.unlink(missing_ok=True)
         state['active'], state['previous'] = after, before
         state.pop('pending')
         state.pop('failed_commit', None)
@@ -415,7 +400,17 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
         commit = self.fetch()
         state = self.state()
         if not retry and (state.get('source_tip') == commit or state.get('failed_commit') == commit):
-            self.reconcile(state['active']['commit'])
+            return
+        controller = self.changed(commit, CONTROLLER, self.controller)
+        handler = self.changed(commit, HANDLER, self.handler)
+        if (controller is not None or handler is not None) and not self.self_tests_pass(commit, retry):
+            controller = handler = None
+        if controller is not None:
+            atomic_write(self.controller, controller)
+            state = self.state()
+            state.pop('failed_commit', None)
+            self.save(state)
+            print('Installed the controller from ' + commit + '; the next run deploys with it')
             return
         release = self.releases / (commit + '-' + uuid.uuid4().hex[:8])
         release.mkdir()
@@ -433,10 +428,15 @@ server.listen(0,'127.0.0.1',()=>console.log(server.address().port));'''
                 self.stage_map(release)
             self.validate(release, commit)
             self.compact(release)
-            # The public post-promotion probe runs through the live handler, so install the candidate's first.
-            self.reconcile(commit, retry)
+            # promote() probes the public site through the live handler, so the candidate's goes in first.
+            if handler is not None:
+                if self.handler.exists():
+                    os.link(self.handler, self.backup)
+                atomic_write(self.handler, handler)
+                self.restart()
             return self.promote({'commit': commit, 'path': str(release / 'website')}, commit)
         except BaseException:
+            self.restore_handler()
             self.compact(release)
             state = self.state()
             state['failed_commit'] = commit
