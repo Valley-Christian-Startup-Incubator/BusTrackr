@@ -44,14 +44,14 @@
         <h3>Camera sightings</h3>
         <p>A camera at one checkpoint emails an alert when a bus enters its zone. BusTrackr shows the time the camera recorded, in Pacific time, and never shows email delivery time as camera time. A sighting doesn't identify the vehicle or its direction, and doesn't prove the bus has left.</p>
         <h3>Arrival estimates and the amber marker</h3>
-        <p>When the server has a usable prediction, the app shows a range in minutes and an amber marker on the route. Ranges are labelled heuristic, not calibrated. Estimates need a confirmed timetable, which doesn't exist yet, and responses older than 45 seconds remove the estimate.</p>
+        <p>When the server has a usable prediction, the app shows a range in minutes and an amber marker on the route. Ranges are labelled heuristic, not calibrated. There is no published timetable. The server learns when the bus passes the camera from past sightings, and responses older than 45 seconds remove the estimate. A position on the route also needs the trip length, which isn't set yet, so today the app shows the next expected pass instead.</p>
         <h3>The 3D scene</h3>
         <p>USGS elevation data and OpenStreetMap footprints become a 3D campus and route. There's no GPS tracking and no location permission. The native app bundles the scene, so its map makes no network requests.</p>
       </section>
 
       <section>
         <h2>Why is there no arrival time?</h2>
-        <p>The production timetable isn't confirmed, so the app shows "No confirmed timetable" and hides every estimate. It will stay that way until an operator confirms the timetable and the checkpoint direction.</p>
+        <p>BusTrackr learns the bus pattern from camera sightings instead of a typed-in timetable. A pass is predicted once the camera has seen it on at least two days, recent days count more than old ones, and one-off sightings are ignored. Until then the app shows "Still learning". Arrival times at Fehren also need the trip length, which isn't set yet, so the app predicts when the bus passes the camera.</p>
       </section>
 
       <section>
@@ -74,10 +74,10 @@
         <table>
           <thead><tr><th scope="col">What you see</th><th scope="col">What it means</th></tr></thead>
           <tbody>
-            <tr><th scope="row">No confirmed timetable</th><td>An operator hasn't confirmed the timetable and checkpoint direction. This is the production state today.</td></tr>
+            <tr><th scope="row">Still learning</th><td>No pass has been seen on two days yet, so nothing is predicted.</td></tr>
             <tr><th scope="row">No clear run match</th><td>More than one run could match, so no arrival or vehicle position is shown.</td></tr>
             <tr><th scope="row">No active run confirmed</th><td>A missing estimate doesn't mean the shuttle has arrived or been cancelled.</td></tr>
-            <tr><th scope="row">Waiting for the next run</th><td>The app shows the next timetable time, labelled as a schedule and not an observed arrival.</td></tr>
+            <tr><th scope="row">Next pass expected</th><td>The time the bus usually passes the camera on this weekday, learned from past sightings. It's a prediction, not an observed arrival.</td></tr>
             <tr><th scope="row">Waiting for fresh data</th><td>The response is over 45 seconds old or the server's last feed check is over two minutes old, so estimates are hidden until the feed refreshes.</td></tr>
             <tr><th scope="row">Feed unavailable</th><td>The status request failed or the service reported a problem. The app keeps the last sighting and hides estimates. Choose Try again or pull down to refresh. The 3D map keeps working.</td></tr>
             <tr><th scope="row">Sample data banner</th><td>A yellow banner marks illustrative data. It stays visible for as long as the sample is on screen.</td></tr>
@@ -116,7 +116,7 @@
 
       <section>
         <h2>How complete is the camera feed?</h2>
-        <p>Partly live. Real camera alerts reach the server through a signed email webhook. As of November 1, 2026, the feed holds one, from October 30. Arrival estimates stay off until there's a confirmed timetable.</p>
+        <p>Partly live. Real camera alerts reach the server through a signed email webhook. As of November 9, 2026, the feed holds ten sightings from October 30 on. Predictions are learned from them and improve as more arrive.</p>
       </section>
 
       <section>

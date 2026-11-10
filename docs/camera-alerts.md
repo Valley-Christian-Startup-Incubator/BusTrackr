@@ -86,7 +86,7 @@ For the web frontend, copy root `.env.example` to `.env.local`, set `VITE_ALERT_
 
 Simple mode shows elapsed minutes since the last sighting without requiring a timetable. Both clients remember the Simple or Map selection. See [notification setup](notifications.md) for optional browser and native push alerts.
 
-A working feed supplies observations. Position estimates also require the confirmed timetable described below; the checked-in schedule is intentionally empty and unconfirmed.
+A working feed supplies observations. The next expected pass is learned from them, as described in [the estimation design](arrival-estimation-research.md). A map position also needs the trip settings below.
 
 ### Templates, persistence and operations
 
@@ -109,7 +109,7 @@ To update backend code from the repository root:
 
 ```sh
 npm run test:alerts
-scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/notifications.mjs server/schedule.json valley-big-mac:apps/bustrackr/server/
+scp server/index.mjs server/resend.mjs server/forwarded-auth.mjs server/alerts.mjs server/estimator.mjs server/notifications.mjs valley-big-mac:apps/bustrackr/server/
 scp deploy/package.json deploy/package-lock.json valley-big-mac:apps/bustrackr/
 ssh valley-big-mac 'cd ~/apps/bustrackr && PATH="$HOME/apps/bustrackr/runtime/node-v24.22.1-darwin-arm64/bin:$PATH" npm ci --omit=dev --ignore-scripts && launchctl kickstart -k user/$(id -u)/com.valley.bustrackr'
 ```
@@ -137,18 +137,15 @@ The receiver acknowledges duplicates and irrelevant mail with HTTP 200. API or p
 
 There is no automatic historical backfill. Replay missed `email.received` events from Resend after the receiver is configured. Existing camera history remains intact; old IMAP cursor data is ignored. Old `IMAP_*` and `GOOGLE_*` environment settings are no longer used and can be removed.
 
-## Configure a real timetable
+## Trip settings
 
-`server/schedule.json` deliberately starts with `confirmed:false` and no runs. Copy the structure of `server/schedule.example.json`, replace every illustrative value with confirmed service details, then set `confirmed:true`. Deploy the timetable and restart the worker after changes. Required values per run:
+Predictions need no timetable. A map position needs the journey around the checkpoint, set together in `.env.server`:
 
-- A unique stable run ID and operating weekdays (0 Sunday through 6 Saturday).
-- Scheduled checkpoint crossing time in America/Los_Angeles, as `HH:mm`.
-- Checkpoint name exactly matching the camera configuration.
-- `direction`: inbound means Fehren → campus; outbound means campus → Fehren.
-- `durationSeconds`: assumed complete journey duration, not a value learned from one checkpoint.
-- `checkpointProgress`: fraction of distance along that direction's route, from 0 to 1.
+- `TRIP_DURATION_SECONDS`: complete journey duration, 60 to 7200. One checkpoint can't measure this, so it must come from someone who knows the route.
+- `TRIP_DIRECTION`: `inbound` (Fehren → campus) or `outbound` (campus → Fehren).
+- `TRIP_CHECKPOINT_PROGRESS`: fraction of the route already covered at the camera, 0 to 1.
 
-Use `excludedDates` for known school holidays and `matchWindowSeconds` to tune association (default 900). Runs are dated by their checkpoint crossing date; overnight service is not supported. A camera arrival before a variable stop/layover cannot establish subsequent departure; leave estimates disabled until the intended anchor is confirmed.
+Leave `TRIP_DURATION_SECONDS` unset to predict only checkpoint passes. Restart the worker after changing them. A camera arrival before a variable stop or layover can't establish the departure that follows; leave the trip unset until the anchor is understood.
 
 ## API and history
 

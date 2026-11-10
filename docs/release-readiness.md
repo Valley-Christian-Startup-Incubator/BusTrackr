@@ -7,11 +7,11 @@ Audit: November 1, 2026. This is a working prototype with a live camera observat
 - Backend on valley-big-mac, HTTPS through Cloudflare Tunnel, signed Resend ingestion and persistent event history.
 - Both fehren receiving addresses configured; one genuine October 30 alert recovered and displayed by the app.
 - Bundled offline 3D campus scene and native observation/estimate interface.
-- Sample, unavailable, stale and unconfirmed timetable states.
+- Sample, unavailable, stale and still-learning states.
 
 ## Required before a useful public release
 
-1. Confirm the service timetable, operating days/holidays, camera checkpoint location and direction. `server/schedule.json` remains empty and unconfirmed. Without this, observations work but arrival estimates cannot run.
+1. Confirm the camera checkpoint location, direction and the trip length (`TRIP_*` settings). Next-pass predictions are learned from sightings; a map position and arrival time need the trip length.
 2. Observe several real service runs through both receiving addresses; validate timestamps, forwarding, duplicate handling, and recovery from delivery failures. One genuine alert is insufficient evidence of reliable ongoing tracking.
 3. Test on physical iPhone and Android devices: 3D load time and memory, small screens, larger text, screen readers, background/resume, poor connectivity and battery use. Browser verification does not certify the native WebView.
 4. Register/confirm Apple and Google developer ownership, final bundle IDs and EAS project. Build signed production binaries and distribute an internal/TestFlight beta. No store submission or signed production build has been completed in this chat.

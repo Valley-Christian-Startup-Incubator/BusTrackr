@@ -8,7 +8,7 @@ import {boundedText, checkReceiver, createReceiver, resendApi} from './resend.mj
 import {PARSER, parseAlert} from './alerts.mjs';
 import {collectorSource, openHistory} from './history.mjs';
 import {dashboardSync, umamiSink} from './dashboard.mjs';
-import {estimate, validateSchedule} from './estimator.mjs';
+import {backtest, estimate, serviceDate} from './estimator.mjs';
 import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
 import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
 import {createFeedbackLog, feedbackRoutes} from './feedback.mjs';
@@ -33,7 +33,9 @@ const history = openHistory(historyPath, {legacyPath:statePath, collector:{
   commit:process.env.BUSTRACKR_COMMIT || null, source:collectorSource(fileURLToPath(new URL('.', import.meta.url))), parser:PARSER,
 }});
 const state = history.state;
-let schedule = validateSchedule(JSON.parse(await readFile(process.env.ALERT_SCHEDULE_FILE || new URL('./schedule.json', import.meta.url), 'utf8')));
+const tripSeconds = Number(sample ? 480 : process.env.TRIP_DURATION_SECONDS || 0);
+const trip = tripSeconds ? {durationSeconds:tripSeconds, direction:sample ? 'outbound' : process.env.TRIP_DIRECTION, checkpointProgress:Number(sample ? .05 : process.env.TRIP_CHECKPOINT_PROGRESS || 0)} : null;
+if (trip && (tripSeconds < 60 || tripSeconds > 7200 || !['inbound','outbound'].includes(trip.direction) || !(trip.checkpointProgress >= 0 && trip.checkpointProgress <= 1))) throw new Error('Set TRIP_DURATION_SECONDS (60-7200), TRIP_DIRECTION (inbound or outbound) and TRIP_CHECKPOINT_PROGRESS (0-1) together');
 let status = sample ? 'sample' : missing.length ? 'disconnected' : 'connecting';
 let lastCheckedAt = null;
 const port = Number(process.env.ALERT_PORT || 8787);
@@ -44,22 +46,29 @@ const api = sample ? null : resendApi(process.env.RESEND_API_KEY);
 const receiver = sample || missing.length ? null : createReceiver({history, config, api});
 if (sample) {
   if (!state.events.length) {
-    const seen = new Date(Date.now()-120_000);
-    const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZoneName:'short'}).formatToParts(seen).map(p=>[p.type,p.value]));
-    const stamp=`[${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} ${p.dayPeriod} (${p.timeZoneName})]`;
-    const fixture = (await readFile(new URL('./fixtures/avigilon-alert.eml', import.meta.url),'utf8')).replace(/\[2026-Oct-16[^\]]+\]/,stamp);
-    history.record(await parseAlert(fixture,config),null,config.cooldownSeconds);
+    // Four days of sightings at the same time of day, the last two minutes ago, so the model has a run to learn.
+    const fixture = await readFile(new URL('./fixtures/avigilon-alert.eml', import.meta.url),'utf8');
+    for (const daysAgo of [3,2,1,0]) {
+      const seen = new Date(Date.now()-120_000-daysAgo*86_400_000);
+      const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZoneName:'short'}).formatToParts(seen).map(p=>[p.type,p.value]));
+      const stamp=`[${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} ${p.dayPeriod} (${p.timeZoneName})]`;
+      const email=fixture.replace(/\[2026-Oct-16[^\]]+\]/,stamp).replace(/^Message-ID: <([^>]+)>/mi,`Message-ID: <sample-${daysAgo}-$1>`);
+      history.record(await parseAlert(email,config,new Date(seen.getTime()+30_000)),null,config.cooldownSeconds);
+    }
   }
-  const event=state.events.find(e=>!e.duplicateOf && e.eventAt);
-  if (!event) throw new Error('Remove or migrate legacy sample state to run the new sample');
-  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(event.eventAt));
-  schedule=validateSchedule({version:'SAMPLE-ONLY',confirmed:true,runs:[{id:'sample-run',days:[0,1,2,3,4,5,6],time,checkpoint:config.checkpoint,checkpointProgress:.05,direction:'outbound',durationSeconds:480}]});
   lastCheckedAt = new Date().toISOString();
+}
+let quality={key:null,value:null};
+function modelQuality(now) {
+  const key=`${state.events.length}:${serviceDate(now)}`;
+  if (quality.key!==key) quality={key,value:backtest(state.events,{checkpoint:config.checkpoint,now})};
+  return quality.value;
 }
 function payload() {
   const checkAge=lastCheckedAt ? Date.now()-Date.parse(lastCheckedAt) : Infinity;
   const feedStatus=sample?'sample':status==='connected' && (checkAge>90_000 || !receiver.healthy)?'disconnected':status;
-  const prediction=estimate(schedule,state.events);
+  const now=new Date();
+  const prediction=estimate(state.events,{checkpoint:config.checkpoint,trip,now,quality:modelQuality(now)});
   if (!sample && feedStatus!=='connected') {prediction.marker=null;prediction.status='offline';prediction.reason='Inbound email feed is not current; position estimate hidden.';}
   return {status:feedStatus,lastCheckedAt,latest:state.latest,eventCount:state.events.length,prediction};
 }

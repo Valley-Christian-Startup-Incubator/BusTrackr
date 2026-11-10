@@ -1,6 +1,6 @@
 # Shuttle arrival estimation research and design decisions
 
-Updated October 16, 2026. This design turns camera email observations into estimates for the Fehren–Skyway shuttle. The first model uses a confirmed timetable and a rolling median of observed checkpoint delays. XGBoost is a candidate replacement once labelled travel times exist, not a requirement for launch.
+Updated November 9, 2026. This design turns camera email observations into estimates for the Fehren–Skyway shuttle. The model learns recurring checkpoint passes from sighting history and scores itself by replaying past days. The October 16 version needed an operator-confirmed timetable that never arrived, so it never ran. XGBoost is a candidate replacement once labelled travel times exist, not a requirement for launch.
 
 ## What the camera establishes
 
@@ -20,34 +20,38 @@ Published results must be interpreted with that difference in mind. [BusTime](ht
 
 The source of truth is camera event history, not an animated bus. Each distinct email retains a hashed message identity, checkpoint, camera event time, delivery time, email header time and timestamp provenance. Raw email bodies, attachments, addresses and mailbox credentials are not returned by the public status API. Reprocessing the same message does not create another event. Distinct notifications within a configurable 30-second window at the same checkpoint are preserved with `duplicateOf`, then excluded from estimator inputs. This is a provisional grouping assumption: two buses within the window may be grouped. Keep the raw event records so grouping can be revised when real camera identifiers become available.
 
-Each schedule entry defines run ID, weekdays, local checkpoint crossing time, direction, total journey duration and checkpoint progress along the route. Production has no invented timetable: `server/schedule.json` starts unconfirmed and empty. The example file is illustrative. Enabling it requires confirming the route, checkpoint, direction, timing and duration. Explicit excluded service dates cover known school closures; calendar synchronization is not implemented. Runs are associated by the local date of their checkpoint crossing; overnight run matching across service dates is not implemented.
+## Learned runs (current model, `learned-runs-v1`)
 
-At inference time:
+There is no typed-in timetable. `server/estimator.mjs` learns when buses pass the checkpoint from the sighting history on every request, so each new sighting changes the next prediction. Settings live in `settings` at the top of that file.
 
-1. Convert times using America/Los_Angeles, including daylight saving changes. Reject ambiguous or nonexistent scheduled times at DST transitions.
-2. Match nonduplicate camera events to scheduled checkpoint crossings within 15 minutes. More than one possible run stays ambiguous. Multiple distinct arrivals matching the same run/date also stay ambiguous.
-3. For a run, take up to 20 previous service dates with a unique matched observation. The median difference between observed and planned crossing time is its learned delay. No observations means zero correction. We pool weekdays within that run until evidence justifies splitting the data further.
-4. Shift today's scheduled crossing by that median. A unique camera observation for today's run replaces the scheduled crossing as the anchor.
-5. Infer journey start and finish from checkpoint progress and the configured duration. Interpolate distance progress uniformly between them. No trip or return journey is invented after that interval ends.
-6. Hide the position if active runs overlap, observations are ambiguous, the timetable is unconfirmed, or the feed is offline/stale. A missed detection does not itself establish a cancellation or an arrival.
+1. **Clean the input.** Use only sightings at the configured checkpoint that both happened and were delivered before the prediction time. Drop `duplicateOf` repeats. Convert to America/Los_Angeles dates and minutes of the day.
+2. **Weight by recency.** A sighting's weight halves every 21 days, so a schedule change takes over within a few weeks without forgetting a stable pattern.
+3. **Find runs.** Sort sightings by time of day and split where neighbours are more than 20 minutes apart. Split any group wider than 45 minutes at its largest gap.
+4. **Reject noise.** A group seen on fewer than two distinct days is not a run. A stray 9:45 AM trigger therefore predicts nothing.
+5. **Summarise robustly.** A run's time is the weighted median and its spread is the weighted median absolute deviation (×1.4826, at least 2 minutes). One odd sighting inside a run barely moves either.
+6. **Learn weekdays.** Every calendar day from the first sighting through yesterday counts as observed. A run's likelihood on a weekday is the recency-weighted share of those weekdays it appeared on, with one pseudo-day at the run's overall rate so a weekday with little history doesn't swing to 0 or 1. Weekends and holidays without sightings push likelihood down. Feed outages do too, which is a known bias.
+7. **Predict.** Runs with likelihood of at least 0.5 on a date become expected passes, with a window of ±max(5 min, 2×spread). Passes already seen today are skipped. The response is `scheduled` with `nextCrossingAt`, `window`, `likelihood` and `historyCount` (days the run was seen), or `unconfigured` while no run exists yet.
+8. **Position, when a trip length is set.** `TRIP_DURATION_SECONDS`, `TRIP_DIRECTION` and `TRIP_CHECKPOINT_PROGRESS` describe the journey around the checkpoint. With them, an active pass becomes `estimated` with a map marker, anchored to today's sighting when there is exactly one. Two sightings for one pass, or overlapping passes, stay `ambiguous`. Production has no trip length yet, because one camera can't measure it.
 
-Only observations both occurring and delivered by the prediction time are available to the model. This prevents retrospective evaluation from using emails that arrived later. The map uses an amber estimated marker and route band, visually separate from the three simulated buses. The UI labels the anchor as camera or timetable and marks sample data explicitly.
+**Self-evaluation.** `backtest` replays history one day at a time, predicting each day only from sightings delivered before it began, then scores hits (within 20 minutes), misses, false alarms, mean error and window coverage. Every prediction carries the current score in `quality`, and the rider feedback log stores it with each report. `npm run model:report` prints the learned runs, the score and the next prediction for any history file. On November 9, 2026 production's 10 sightings gave runs near 2:31 PM (Tue/Fri), 3:12 PM (Mon/Wed/Thu) and 4:03 PM (Tue/Wed), one rejected sighting, and a backtest of 2 hits and 3 misses over 5 days. That is the baseline to beat.
 
-The displayed range is a heuristic, not a confidence claim: two minutes plus 20% of elapsed time from a camera anchor, or four minutes without a camera anchor. The heuristic is an engineering placeholder, not a measured error distribution. Uniform distance progress is also an assumption; the model has no measured segment speeds, dwell times or current traffic in this version. Observations at a terminal do not prove departure afterward. If a camera only observes arrival before a variable layover, do not configure it as an onward-departure anchor without modelling or measuring that layover.
+Only observations both occurring and delivered by the prediction time are available to the model. This prevents retrospective evaluation from using emails that arrived later. The map uses an amber estimated marker and route band, visually separate from the three simulated buses.
+
+The displayed range is a heuristic, not a confidence claim: two minutes plus 20% of elapsed time from a camera anchor, or the learned pass window without one. The heuristic is an engineering placeholder, not a measured error distribution. Uniform distance progress is also an assumption; the model has no measured segment speeds, dwell times or current traffic in this version. Observations at a terminal do not prove departure afterward. If a camera only observes arrival before a variable layover, do not configure it as an onward-departure anchor without modelling or measuring that layover.
 
 ## Why this architecture
 
 | Decision | Reason | Alternative and upgrade trigger |
 | --- | --- | --- |
 | Retain events separately from estimates | Predictions must not become training labels; repeated email deliveries must not inflate data | Add confirmed departure/arrival labels and model evaluation records as they become available |
-| Start with a rolling median | Inspectable, robust to isolated late runs, useful with little data | Compare EWMA, regression and boosted trees with forward tests |
+| Start with weighted medians | Inspectable, robust to isolated odd sightings, useful with little data | Compare EWMA, regression and boosted trees with the same day-by-day backtest |
 | Learn checkpoint lateness first | It is directly observable with the current sensor | Learn trip/segment duration only after paired ground truth exists |
-| Keep the timetable operator supplied | One email does not establish direction or the operating schedule | Infer service patterns as suggestions for an operator to verify |
+| Learn the pass pattern, not a timetable | Sightings are the only data that keeps arriving; a typed timetable never did | Add school-calendar dates or a second checkpoint when the backtest shows systematic misses |
 | Suppress ambiguous positions | Anonymous sightings cannot reliably identify multiple shuttles | Use camera direction, vehicle ID, a second sensor or driver/GPS data |
 | Keep rendering independent of the model | A future model should change predictions without changing map geometry | Retain the estimate API contract when replacing the predictor |
-| Use one Node worker and local atomic state | Small, inspectable deployment that survives ordinary restarts | Move to transactional SQLite/Postgres when history size, querying or multiple workers warrant it |
+| Use one Node worker and a local SQLite history | Small, inspectable deployment that survives ordinary restarts | Move to Postgres when multiple workers need the history |
 
-The JSON history is intended for the initial single-worker pilot. Every successful write replaces the complete state file atomically. It is not an append-only audit store, does not enforce multi-process locking, and has linear history scans. Keep one worker per file, persistent disk, restrictive permissions and backups. A database migration should preserve original event identities and timestamps.
+History is an append-only SQLite file with daily snapshots (see `docs/camera-alerts.md`). The estimator refits on each request, which is cheap at this data size.
 
 ## Traffic data
 
