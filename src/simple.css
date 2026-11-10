@@ -152,7 +152,7 @@ button:focus-visible,a:focus-visible {
 }
 .simple-report button {
   min-height:44px;
-  padding:10px 20px;
+  padding:10px 16px;
   border:1px solid #003360;
   border-radius:8px;
   background:#ffffff;
@@ -160,8 +160,36 @@ button:focus-visible,a:focus-visible {
   font-size:15px;
   font-weight:600
 }
-.simple-report span,
-.simple-report p {
+.simple-confirm {
+  width:min(340px, calc(100vw - 32px));
+  padding:24px;
+  border:0;
+  border-radius:12px;
+  color:#003360;
+  text-align:left
+}
+.simple-confirm::backdrop {
+  background:rgba(0, 31, 58, .45)
+}
+.simple-confirm h2 {
+  margin:0 0 8px;
+  font-size:20px
+}
+.simple-confirm p {
+  margin:0 0 20px;
+  font-size:15px;
+  line-height:1.45
+}
+.simple-confirm form {
+  display:flex;
+  flex-direction:column;
+  gap:8px
+}
+.simple-confirm button:first-of-type {
+  background:#003360;
+  color:#ffffff
+}
+.simple-report > p {
   flex-basis:100%;
   margin:2px 0 0
 }
