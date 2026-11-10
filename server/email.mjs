@@ -18,3 +18,15 @@ export function renderEmail({subject, paragraphs, button = null}) {
     + '</table></td></tr></table></body></html>';
   return {subject, text, html};
 }
+
+export function createMailer({apiKey, from, fetchImpl = fetch}) {
+  return async (to, email) => {
+    const response = await fetchImpl('https://api.resend.com/emails', {
+      method: 'POST', signal: AbortSignal.timeout(15_000), redirect: 'error',
+      headers: {Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify({from, to: [to], ...email}),
+    });
+    await response.body?.cancel();
+    if (!response.ok) throw new Error('Resend request failed');
+  };
+}

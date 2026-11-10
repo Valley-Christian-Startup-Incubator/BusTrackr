@@ -12,6 +12,8 @@ import {backtest, estimate, serviceDate} from './estimator.mjs';
 import {createNotificationService, notificationDelivery, notificationRoutes} from './notifications.mjs';
 import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
 import {createFeedbackLog, feedbackRoutes} from './feedback.mjs';
+import {openAccounts, sessionRoutes} from './accounts.mjs';
+import {createMailer} from './email.mjs';
 
 const sample = process.argv.includes('--sample');
 const once = process.argv.includes('--once');
@@ -86,6 +88,11 @@ const handleNotifications=notificationRoutes(notifications || unavailableNotific
 const waitlist=!sample && process.env.RESEND_API_KEY?.trim() && process.env.WAITLIST_SEGMENT_ID?.trim() && process.env.WAITLIST_FROM?.trim()
   ?createWaitlist({apiKey:process.env.RESEND_API_KEY,segmentId:process.env.WAITLIST_SEGMENT_ID,from:process.env.WAITLIST_FROM}):null;
 const handleWaitlist=waitlistRoutes(waitlist,{allowedOrigins});
+let accounts;
+try {if(!sample && !once)accounts=openAccounts(join(dirname(statePath),'accounts.sqlite'));}
+catch {console.error('Account storage unavailable; pilot sign-in is closed.');}
+const mailer=!sample && process.env.RESEND_API_KEY?.trim() && process.env.WAITLIST_FROM?.trim()?createMailer({apiKey:process.env.RESEND_API_KEY,from:process.env.WAITLIST_FROM}):null;
+const handleSession=sessionRoutes({accounts,mailer,sample,allowedOrigins,siteUrl:new URL(process.env.PILOT_SITE_URL || 'https://bustrackr.valleychristianai.com')});
 const dashboard=process.env.SIGHTINGS_UMAMI_URL && process.env.SIGHTINGS_UMAMI_WEBSITE?
   dashboardSync(history,umamiSink({url:process.env.SIGHTINGS_UMAMI_URL,website:process.env.SIGHTINGS_UMAMI_WEBSITE})):null;
 function maintainHistory() {
@@ -112,6 +119,7 @@ const server = createServer(async (req,res)=>{
   res.setHeader('Vary','Origin'); res.setHeader('Cache-Control','no-store'); res.setHeader('Content-Type','application/json');
   if (await handleNotifications(req,res)) return;
   if (await handleWaitlist(req,res)) return;
+  if (await handleSession(req,res)) return;
   if (await handleFeedback(req,res)) return;
   if (req.method === 'GET' && req.url === '/api/health') {res.end(JSON.stringify({status:missing.length?'needs_configuration':payload().status,storage:'local',missing}));return;}
   if (req.method === 'POST' && req.url === '/api/resend/inbound') {

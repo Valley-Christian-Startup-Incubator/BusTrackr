@@ -1,7 +1,7 @@
-import {isIP} from 'node:net';
 import {z} from 'zod';
 import {boundedText} from './resend.mjs';
 import {renderEmail} from './email.mjs';
+import {requestLimiter} from './notifications.mjs';
 
 // `website` is a hidden honeypot field: people leave it empty, form-filling bots don't.
 const signupSchema = z.object({email: z.string().trim().toLowerCase().pipe(z.email().max(254)), website: z.string().max(500).optional()});
@@ -43,7 +43,7 @@ export function createWaitlist({apiKey, segmentId, from, fetchImpl = fetch}) {
 }
 
 export function waitlistRoutes(waitlist, {allowedOrigins = [], now = Date.now} = {}) {
-  const requests = new Map();
+  const allow = requestLimiter({max: 5, windowMs: 600_000, now});
   return async (req, res) => {
     if (req.url !== '/api/waitlist') return false;
     const respond = (status, body) => {res.writeHead(status); res.end(JSON.stringify(body)); return true;};
@@ -54,14 +54,7 @@ export function waitlistRoutes(waitlist, {allowedOrigins = [], now = Date.now} =
       return respond(204, null);
     }
     if (req.method !== 'POST') return respond(404, {error: 'Not found'});
-    const remote = req.socket.remoteAddress || 'unknown';
-    const forwarded = req.headers['cf-connecting-ip'];
-    const ip = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote) && typeof forwarded === 'string' && isIP(forwarded) ? forwarded : remote;
-    const time = now();
-    for (const [key, value] of requests) if (value.reset <= time) requests.delete(key);
-    const limit = requests.get(ip) || {count: 0, reset: time + 600_000};
-    if (requests.size >= 2000 && !requests.has(ip) || ++limit.count > 5) return respond(429, {error: 'Too many signups from this network. Try again later.'});
-    requests.set(ip, limit);
+    if (!allow(req)) return respond(429, {error: 'Too many signups from this network. Try again later.'});
     if (!req.headers['content-type']?.startsWith('application/json')) return respond(415, {error: 'Use application/json'});
     let signup;
     try {signup = signupSchema.parse(JSON.parse(await boundedText(req, 4000)));}
