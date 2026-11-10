@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 import unittest
+import urllib.error
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -82,8 +83,14 @@ const worker=createServer((req,res)=>{
         module.run('node', str(self.source / 'scripts/version-website-assets.mjs'))
 
     def request(self, path='/'):
-        with urllib.request.urlopen(self.url + path, timeout=5) as response:
-            return response.read().decode()
+        try:
+            with urllib.request.urlopen(self.url + path, timeout=5) as response:
+                return response.read().decode()
+        except urllib.error.HTTPError as error:
+            # Python 3.9, the deploy host's interpreter, does not follow 308 redirects.
+            if error.code != 308:
+                raise
+            return self.request(error.headers['Location'])
 
     def adopt(self):
         with self.deployer.locked() as acquired:
