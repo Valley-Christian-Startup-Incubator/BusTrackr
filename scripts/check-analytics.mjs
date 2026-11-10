@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright';
 
-const url = new URL(process.argv[2] || 'https://bustrackr.valleychristianai.com/app');
+const url = new URL(process.argv[2] || 'https://bustrackr.valleychristianai.com/');
 const campaign = `analytics-verification-${randomUUID()}`;
 url.searchParams.set('utm_source', 'verification');
 url.searchParams.set('utm_campaign', campaign);
@@ -23,6 +23,7 @@ try {
   const event = response.request().postDataJSON();
   assert.equal(event.payload.website, '5eaf2f91-0cd8-48ce-84b1-1cc3244cf436');
   const landing = new URL(event.payload.url);
+  assert.equal(landing.pathname, url.pathname, `Pageview came from ${landing.pathname}, not ${url.pathname}; /app sends signed-out visitors to the landing page`);
   assert.equal(landing.searchParams.get('utm_source'), 'verification');
   assert.equal(landing.searchParams.get('utm_campaign'), campaign);
   console.log(JSON.stringify({status: response.status(), hostname: event.payload.hostname, campaign, website: event.payload.website}));
