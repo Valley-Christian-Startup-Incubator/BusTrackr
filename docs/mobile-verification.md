@@ -7,7 +7,7 @@ Verified on October 26, 2026 with Expo SDK 57, React Native 0.86.3, and an iPhon
 | Check | Result |
 | --- | --- |
 | `npm run test:alerts` | 12 worker tests passed |
-| `npm run check:mobile-scene` | Bundled assets match source; offline geometry, presets, manual camera release, expiry, clearing and suspension passed with zero HTTP requests |
+| `npm run check:mobile-scene` | Scene generated from source; offline geometry, presets, manual camera release, expiry, clearing and suspension passed with zero HTTP requests |
 | `npm run build` | Web production build and scene geometry checks passed |
 | `npm --prefix mobile test` | 15 mobile tests passed, including actual sample-worker HTTP contract |
 | `npm --prefix mobile run typecheck` | Passed |

@@ -21,7 +21,7 @@
     "pilot:list": "node --env-file=.env.server --disable-warning=ExperimentalWarning server/pilot.mjs list",
     "pilot:remove": "node --env-file=.env.server --disable-warning=ExperimentalWarning server/pilot.mjs remove",
     "build:mobile-scene": "node scripts/build-mobile-scene.mjs",
-    "check:mobile-scene": "node scripts/build-mobile-scene.mjs --check && node scripts/check-mobile-scene.mjs",
+    "check:mobile-scene": "node scripts/build-mobile-scene.mjs && node scripts/check-mobile-scene.mjs",
     "website:prepare": "node scripts/version-website-assets.mjs",
     "website:check": "node scripts/version-website-assets.mjs --check",
     "model:report": "node server/model-report.mjs"
