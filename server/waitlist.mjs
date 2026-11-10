@@ -1,18 +1,18 @@
 import {isIP} from 'node:net';
 import {z} from 'zod';
 import {boundedText} from './resend.mjs';
+import {renderEmail} from './email.mjs';
 
 // `website` is a hidden honeypot field: people leave it empty, form-filling bots don't.
 const signupSchema = z.object({email: z.string().trim().toLowerCase().pipe(z.email().max(254)), website: z.string().max(500).optional()});
-const confirmation = {
+const confirmation = renderEmail({
   subject: "You're on the BusTrackr pilot waitlist",
-  text: [
+  paragraphs: [
     'Thanks for signing up.',
     "BusTrackr is running a limited pilot for the Fehren–Skyway shuttle at Valley Christian. We'll email you when there's a spot for you.",
     "Didn't sign up? Ignore this email and we won't write again.",
-    'BusTrackr, a student project of BEI at Valley Christian Schools',
-  ].join('\n\n'),
-};
+  ],
+});
 
 export function createWaitlist({apiKey, segmentId, from, fetchImpl = fetch}) {
   const call = async (method, path, body, headers = {}) => {

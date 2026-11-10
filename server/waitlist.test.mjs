@@ -33,6 +33,8 @@ test('a new signup joins the segment and gets exactly one confirmation', async t
   const email = resend.calls.find(call => call.path === '/emails');
   assert.deepEqual(email.body.to, ['parent@example.com']);
   assert.equal(email.headers['Idempotency-Key'], 'waitlist/parent@example.com');
+  assert.match(email.body.text, /^Thanks for signing up\.\n\n[^]*BEI at Valley Christian Schools$/);
+  assert.match(email.body.html, /<p [^>]*>Thanks for signing up\.<\/p>/);
   assert.equal((await join({email: 'parent@example.com'})).status, 200);
   assert.equal(resend.calls.filter(call => call.path === '/emails').length, 1);
   assert.equal(resend.calls.at(-1).path, '/contacts/parent%40example.com/segments/segment');
