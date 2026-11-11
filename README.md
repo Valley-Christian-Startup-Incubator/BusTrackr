@@ -1,5 +1,7 @@
 # Valley Shuttle
 
+New here? Start with [the BusTrackr field guide](docs/guide/README.md). It walks through the whole system in seven short chapters, each ending in a quiz.
+
 BusTrackr includes a native Expo app in `mobile/`, a React web prototype with a local Three.js scene, and a camera-email worker. Both clients show checkpoint observations separately from arrival estimates.
 
 ## Product website and release
