@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {createWaitlist, waitlistRoutes} from './waitlist.mjs';
 
-function fakeResend(existing = new Set()) {
+function fakeResend(contacts = new Map()) {
   const calls = [];
   const fetchImpl = async (url, options) => {
     const path = new URL(url).pathname, body = options.body && JSON.parse(options.body);
     calls.push({method: options.method, path, body, headers: options.headers});
-    if (options.method === 'GET') return new Response('{}', {status: existing.has(decodeURIComponent(path.split('/')[2])) ? 200 : 404});
-    if (path === '/contacts') existing.add(body.email);
+    const [, , email, segments, segmentId] = path.split('/').map(decodeURIComponent);
+    if (options.method === 'GET' && segments) return Response.json({data: [...contacts.get(email)].map(id => ({id}))});
+    if (options.method === 'GET') return new Response('{}', {status: contacts.has(email) ? 200 : 404});
+    if (path === '/contacts') contacts.set(body.email, new Set(body.segments.map(segment => segment.id)));
+    if (segmentId) contacts.get(email).add(segmentId);
     return new Response('{}', {status: 201});
   };
   return {calls, fetchImpl};
@@ -35,9 +38,18 @@ test('a new signup joins the segment and gets exactly one confirmation', async t
   assert.equal(email.headers['Idempotency-Key'], 'waitlist/parent@example.com');
   assert.match(email.body.text, /^Thanks for signing up\.\n\n[^]*BEI at Valley Christian Schools$/);
   assert.match(email.body.html, /<p [^>]*>Thanks for signing up\.<\/p>/);
-  assert.equal((await join({email: 'parent@example.com'})).status, 200);
+  const again = await join({email: 'parent@example.com'});
+  assert.deepEqual(await again.json(), {joined: true, alreadyJoined: true});
   assert.equal(resend.calls.filter(call => call.path === '/emails').length, 1);
-  assert.equal(resend.calls.at(-1).path, '/contacts/parent%40example.com/segments/segment');
+});
+
+test('a contact from another mailing joins the waitlist and gets one confirmation', async t => {
+  const resend = fakeResend(new Map([['parent@example.com', new Set(['internships'])]]));
+  const join = await serve(t, createWaitlist({apiKey: 'key', segmentId: 'segment', from: 'pilot@example.com', fetchImpl: resend.fetchImpl}));
+  assert.deepEqual(await (await join({email: 'parent@example.com'})).json(), {joined: true, alreadyJoined: false});
+  assert.ok(resend.calls.some(call => call.method === 'POST' && call.path === '/contacts/parent%40example.com/segments/segment'));
+  assert.deepEqual(await (await join({email: 'parent@example.com'})).json(), {joined: true, alreadyJoined: true});
+  assert.equal(resend.calls.filter(call => call.path === '/emails').length, 1);
 });
 
 test('the waitlist rejects bad input, bots, foreign origins and floods', async t => {

@@ -141,8 +141,12 @@
           const body = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(body.error || "We couldn't save that right now. Try again in a minute.");
           form.reset();
-          status.textContent = "You're on the list. Check your inbox for a confirmation.";
-          window.BusTrackrAnalytics?.track('waitlist_joined');
+          if (body.alreadyJoined) {
+            status.textContent = "You're already on the waitlist. We'll email you when there's a spot.";
+          } else {
+            status.textContent = "You're on the list. Check your inbox for a confirmation.";
+            window.BusTrackrAnalytics?.track('waitlist_joined');
+          }
         } catch (error) {
           status.textContent = error.name === 'TimeoutError' || error instanceof TypeError ? "We couldn't reach the server. Check your connection and try again." : error.message;
         } finally {

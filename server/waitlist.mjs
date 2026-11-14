@@ -20,24 +20,30 @@ export function createWaitlist({apiKey, segmentId, from, fetchImpl = fetch}) {
       method, body: body && JSON.stringify(body), signal: AbortSignal.timeout(15_000), redirect: 'error',
       headers: {Authorization: `Bearer ${apiKey}`, ...(body ? {'Content-Type': 'application/json'} : {}), ...headers},
     });
+    if (method === 'GET' && response.ok) return {status: response.status, body: await response.json()};
     await response.body?.cancel();
-    return response.status;
+    return {status: response.status};
   };
-  const ok = status => status >= 200 && status < 300;
+  const ok = ({status}) => status >= 200 && status < 300;
+  const must = result => {if (!ok(result)) throw new Error('Resend request failed');};
   return {
     async join(email) {
       const contact = `/contacts/${encodeURIComponent(email)}`;
       const existing = await call('GET', contact);
-      if (existing !== 200 && existing !== 404) throw new Error('Resend request failed');
-      if (existing === 200) {
-        if (!ok(await call('POST', `${contact}/segments/${encodeURIComponent(segmentId)}`))) throw new Error('Resend request failed');
-        return {created: false};
+      if (existing.status !== 200 && existing.status !== 404) throw new Error('Resend request failed');
+      if (existing.status === 200) {
+        // The Resend account is shared with other Valley mailings, so a contact can exist without being on the waitlist.
+        const segments = await call('GET', `${contact}/segments?limit=100`);
+        must(segments);
+        if (segments.body.data?.some(segment => segment.id === segmentId)) return {alreadyJoined: true};
+        must(await call('POST', `${contact}/segments/${encodeURIComponent(segmentId)}`));
+      } else {
+        must(await call('POST', '/contacts', {email, segments: [{id: segmentId}]}));
       }
-      if (!ok(await call('POST', '/contacts', {email, segments: [{id: segmentId}]}))) throw new Error('Resend request failed');
-      // Only new contacts get a confirmation, so the form can't be used to send someone repeated mail.
-      const sent = await call('POST', '/emails', {from, to: [email], ...confirmation}, {'Idempotency-Key': `waitlist/${email}`}).catch(() => 0);
+      // Only someone newly added to the segment gets a confirmation, so the form can't be used to send someone repeated mail.
+      const sent = await call('POST', '/emails', {from, to: [email], ...confirmation}, {'Idempotency-Key': `waitlist/${email}`}).catch(() => ({status: 0}));
       if (!ok(sent)) console.error('Waitlist confirmation email failed; the signup was saved.');
-      return {created: true};
+      return {alreadyJoined: false};
     },
   };
 }
@@ -61,7 +67,7 @@ export function waitlistRoutes(waitlist, {allowedOrigins = [], now = Date.now} =
     catch {return respond(400, {error: 'Enter a valid email address.'});}
     if (signup.website) return respond(200, {joined: true});
     if (!waitlist) return respond(503, {error: 'The waitlist is closed right now.'});
-    try {await waitlist.join(signup.email); return respond(200, {joined: true});}
+    try {const {alreadyJoined} = await waitlist.join(signup.email); return respond(200, {joined: true, alreadyJoined});}
     catch {return respond(503, {error: "We couldn't save that right now. Try again in a minute."});}
   };
 }
